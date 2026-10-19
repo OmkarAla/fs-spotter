@@ -15,6 +15,7 @@ class RouteJob(models.Model):
     departure_time = models.DateTimeField()
     load_weight = models.FloatField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    recommended_route_id = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

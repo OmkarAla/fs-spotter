@@ -4,6 +4,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from .models import RouteJob
 from .serializers import RouteRequestSerializer, RouteJobSerializer, RouteResultSerializer
+from .tasks import process_route_job
 
 class RouteTriggerView(APIView):
     def post(self, request):
@@ -12,13 +13,12 @@ class RouteTriggerView(APIView):
         
         job = RouteJob.objects.create(**serializer.validated_data)
         
-        # Placeholder for Celery task trigger
-        self._trigger_routing_task(job)
+        # Trigger Celery task
+        process_route_job.delay(job.id)
         
         return Response(RouteJobSerializer(job).data, status=status.HTTP_201_CREATED)
-
+    
     def _trigger_routing_task(self, job):
-        # This will be replaced by a Celery task in Phase 2
         pass
 
 class RouteStatusView(APIView):
