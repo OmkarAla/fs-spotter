@@ -1,6 +1,6 @@
 import uuid
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 class RoutingClient:
     _instance = None
@@ -32,7 +32,7 @@ class RoutingClient:
             
             checkpoints = []
             num_checkpoints = int(distance // 25)
-            start_time = datetime.now()
+            start_time = datetime.now(timezone.utc)
             
             for cp_idx in range(num_checkpoints):
                 checkpoints.append({

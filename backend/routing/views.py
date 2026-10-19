@@ -25,11 +25,13 @@ class RouteStatusView(APIView):
     def get(self, request, id):
         job = get_object_or_404(RouteJob, pk=id)
         data = RouteJobSerializer(job).data
-        
+
         if job.status == 'COMPLETED':
-            # In a real scenario, we would fetch the actual result associated with the job
-            # For now, we return a placeholder result as the RouteResultSerializer requires a result object
-            # This part will be integrated with the actual result storage in Phase 2/3
-            data['result'] = "Route calculation completed. Results available in result store."
-            
+            routes = job.route_options.prefetch_related('checkpoints').all()
+            data['result'] = RouteResultSerializer({
+                'job_id': job.id,
+                'recommended_route_id': job.recommended_route_id,
+                'routes': routes,
+            }).data
+
         return Response(data)

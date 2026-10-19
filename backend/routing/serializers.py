@@ -1,35 +1,48 @@
 from rest_framework import serializers
 
-class CheckpointDetailSerializer(serializers.Serializer):
-    latitude = serializers.FloatField()
-    longitude = serializers.FloatField()
-    estimated_arrival = serializers.DateTimeField()
-    weather_data = serializers.JSONField()
-    risk_level = serializers.CharField()
-    mile_marker = serializers.FloatField()
+from .models import RouteCheckpoint, RouteOption
 
-class RouteDetailSerializer(serializers.Serializer):
-    route_id = serializers.UUIDField()
-    checkpoints = CheckpointDetailSerializer(many=True)
-    
-    def get_polyline(self, obj):
-        return ""
-    
-    def get_total_risk_score(self, obj):
-        return 0
 
-    polyline = serializers.SerializerMethodField()
-    total_risk_score = serializers.SerializerMethodField()
+class CheckpointDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RouteCheckpoint
+        fields = [
+            'latitude',
+            'longitude',
+            'estimated_arrival',
+            'weather_data',
+            'risk_level',
+            'mile_marker',
+        ]
+
+
+class RouteDetailSerializer(serializers.ModelSerializer):
+    checkpoints = CheckpointDetailSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = RouteOption
+        fields = [
+            'route_id',
+            'polyline',
+            'total_distance',
+            'total_time',
+            'risk_miles',
+            'total_risk_score',
+            'checkpoints',
+        ]
+
 
 class RouteResultSerializer(serializers.Serializer):
     job_id = serializers.UUIDField()
+    recommended_route_id = serializers.CharField(allow_null=True)
     routes = RouteDetailSerializer(many=True)
-    recommended_route_id = serializers.UUIDField()
+
 
 class RouteJobSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     status = serializers.CharField()
     created_at = serializers.DateTimeField()
+
 
 class RouteRequestSerializer(serializers.Serializer):
     origin = serializers.CharField()
