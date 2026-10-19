@@ -14,3 +14,7 @@ venv/
 # Environment / secrets
 .env
 .env.*
+
+# Frontend (so the unified-repo conversion next session doesn't stage these)
+node_modules/
+dist/
