@@ -11,6 +11,8 @@ const forecast = {
 describe('apiClient.getForecast', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.resetModules();
   });
 
   it('requests the forecast endpoint for the selected hour', async () => {
@@ -24,6 +26,24 @@ describe('apiClient.getForecast', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/routes/job-1/forecast/?hour=12',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('uses VITE_API_URL when configured and adds https to a bare host', async () => {
+    vi.stubEnv('VITE_API_URL', 'fs-spotter-api.onrender.com');
+    vi.resetModules();
+    const { apiClient: configuredClient } = await import('../client');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => forecast,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await configuredClient.getForecast('job-1', 12);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://fs-spotter-api.onrender.com/api/v1/routes/job-1/forecast/?hour=12',
       expect.objectContaining({ method: 'GET' }),
     );
   });

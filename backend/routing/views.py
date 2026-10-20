@@ -12,6 +12,14 @@ from .serializers import (
 )
 from .tasks import process_route_job
 
+class HealthView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        return Response({'status': 'ok'})
+
+
 class RouteTriggerView(APIView):
     def post(self, request):
         serializer = RouteRequestSerializer(data=request.data)

@@ -1,8 +1,15 @@
 import { RouteForecast, RouteRequest, RouteJob } from '../types/api';
 
+const configuredBaseUrl = (import.meta.env.VITE_API_URL ?? '').trim();
+const API_BASE_URL = configuredBaseUrl
+  ? `${configuredBaseUrl.startsWith('http') ? '' : 'https://'}${configuredBaseUrl}`.replace(/\/+$/, '')
+  : '';
+
+const apiUrl = (path: string): string => `${API_BASE_URL}${path}`;
+
 export const apiClient = {
   async triggerRoute(data: RouteRequest): Promise<RouteJob> {
-    const response = await fetch('/api/v1/routes/', {
+    const response = await fetch(apiUrl('/api/v1/routes/'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -23,7 +30,7 @@ export const apiClient = {
     signal?: AbortSignal,
   ): Promise<RouteForecast> {
     const response = await fetch(
-      `/api/v1/routes/${encodeURIComponent(id)}/forecast/?hour=${hour}`,
+      apiUrl(`/api/v1/routes/${encodeURIComponent(id)}/forecast/?hour=${hour}`),
       { method: 'GET', signal },
     );
 
@@ -35,7 +42,7 @@ export const apiClient = {
   },
 
   async getRouteStatus(id: string): Promise<RouteJob> {
-    const response = await fetch(`/api/v1/routes/${id}/`, {
+    const response = await fetch(apiUrl(`/api/v1/routes/${id}/`), {
       method: 'GET',
     });
 

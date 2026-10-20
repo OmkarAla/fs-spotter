@@ -273,3 +273,10 @@ class ProcessRouteJobTests(APITestCase):
         route = job.route_options.first()
         markers = list(route.checkpoints.values_list('mile_marker', flat=True))
         self.assertEqual(markers, sorted(markers))
+
+
+class HealthCheckTests(APITestCase):
+    def test_health_check_reports_ok(self):
+        response = self.client.get(reverse('health'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {'status': 'ok'})

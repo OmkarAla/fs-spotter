@@ -14,7 +14,14 @@ venv/
 # Environment / secrets
 .env
 .env.*
+!.env.example
 
 # Frontend build artifacts
 node_modules/
 dist/
+
+# Django collected static files
+backend/staticfiles/
+
+# Playwright QA artifacts
+.playwright-mcp/
