@@ -1,9 +1,8 @@
 import hashlib
-import math
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from .geometry import encode_polyline
+from .geometry import encode_polyline, polyline_length_miles
 
 
 _CITY_COORDINATES = {
@@ -50,8 +49,6 @@ _CITY_COORDINATES = {
 }
 
 _CURVATURES = (0.0, 0.06, -0.06)
-_DISTANCE_FACTORS = (1.02, 1.06, 1.12)
-_SAMPLE_INTERVAL_MILES = 25.0
 
 
 class RoutingClient:
@@ -76,41 +73,22 @@ class RoutingClient:
         raise NotImplementedError("Real API integration not configured")
 
     def _get_mock_routes(self, origin, destination, departure_time=None):
-        departure = _ensure_aware(departure_time)
         start = _coordinates_for(origin)
         end = _coordinates_for(destination)
         seed = _seed_for(origin, destination)
         rng = random.Random(seed)
-        base_distance = max(_haversine_miles(start, end), 50.0)
-
         routes = []
-        for index, (curvature, distance_factor) in enumerate(
-            zip(_CURVATURES, _DISTANCE_FACTORS)
-        ):
-            distance = base_distance * distance_factor
+        for index, curvature in enumerate(_CURVATURES):
+            polyline_points = _build_path(start, end, curvature)
+            distance = polyline_length_miles(polyline_points)
             average_speed = rng.uniform(52.0, 64.0)
             time_hours = distance / average_speed
-            polyline_points = _build_path(start, end, curvature)
-            checkpoint_count = max(1, int(distance // _SAMPLE_INTERVAL_MILES))
-
-            checkpoints = []
-            for checkpoint_index in range(checkpoint_count):
-                progress = checkpoint_index / checkpoint_count
-                latitude, longitude = _point_on_path(start, end, curvature, progress)
-                checkpoints.append({
-                    "lat": round(latitude, 5),
-                    "lon": round(longitude, 5),
-                    "estimated_arrival_time": (
-                        departure + timedelta(hours=time_hours * progress)
-                    ).isoformat(),
-                })
 
             routes.append({
                 "route_id": f"mock-{seed[:10]}-{index + 1}",
                 "polyline": encode_polyline(polyline_points),
-                "total_distance": distance,
-                "total_time": time_hours * 3600,
-                "checkpoints": checkpoints,
+                "total_distance": round(distance, 3),
+                "total_time": round(time_hours * 3600, 3),
             })
 
         return routes
@@ -211,19 +189,6 @@ def _coordinates_for(location):
 def _seed_for(origin, destination):
     key = f"{_normalized_location(origin)}|{_normalized_location(destination)}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
-
-
-def _haversine_miles(start, end):
-    start_lat, start_lon = map(math.radians, start)
-    end_lat, end_lon = map(math.radians, end)
-    latitude_delta = end_lat - start_lat
-    longitude_delta = end_lon - start_lon
-
-    value = (
-        math.sin(latitude_delta / 2) ** 2
-        + math.cos(start_lat) * math.cos(end_lat) * math.sin(longitude_delta / 2) ** 2
-    )
-    return 3958.8 * 2 * math.asin(math.sqrt(value))
 
 
 def _point_on_path(start, end, curvature, progress):

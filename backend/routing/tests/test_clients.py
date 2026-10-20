@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from django.test import SimpleTestCase
 
 from routing.clients import RoutingClient
-from routing.geometry import decode_polyline
+from routing.geometry import decode_polyline, polyline_length_miles
 
 
 class RoutingClientGeometryTests(SimpleTestCase):
@@ -19,13 +19,6 @@ class RoutingClientGeometryTests(SimpleTestCase):
         )
 
         self.assertEqual(self.routes, repeated)
-
-    def test_route_times_start_at_requested_departure(self):
-        for route in self.routes:
-            first_arrival = datetime.fromisoformat(
-                route["checkpoints"][0]["estimated_arrival_time"]
-            )
-            self.assertEqual(first_arrival, self.departure)
 
     def test_each_route_has_a_distinct_decodable_polyline(self):
         polylines = set()
@@ -48,23 +41,22 @@ class RoutingClientGeometryTests(SimpleTestCase):
             self.assertAlmostEqual(end_lat, 34.0522, places=2)
             self.assertAlmostEqual(end_lon, -118.2437, places=2)
 
-    def test_checkpoints_stay_inside_the_continental_united_states(self):
+    def test_route_distance_is_derived_from_the_polyline(self):
         for route in self.routes:
-            self.assertGreater(len(route["checkpoints"]), 1)
+            points = decode_polyline(route["polyline"])
 
-            for checkpoint in route["checkpoints"]:
-                self.assertGreaterEqual(checkpoint["lat"], 24.0)
-                self.assertLessEqual(checkpoint["lat"], 50.0)
-                self.assertGreaterEqual(checkpoint["lon"], -125.0)
-                self.assertLessEqual(checkpoint["lon"], -67.0)
+            self.assertAlmostEqual(
+                route["total_distance"],
+                polyline_length_miles(points),
+                places=3,
+            )
 
-    def test_checkpoint_arrival_times_increase_along_each_route(self):
+    def test_route_times_are_derived_from_distance(self):
         for route in self.routes:
-            arrivals = [
-                datetime.fromisoformat(checkpoint["estimated_arrival_time"])
-                for checkpoint in route["checkpoints"]
-            ]
-            self.assertEqual(arrivals, sorted(arrivals))
+            self.assertGreater(route["total_time"], 0)
+            average_speed = route["total_distance"] / (route["total_time"] / 3600)
+            self.assertGreaterEqual(average_speed, 50)
+            self.assertLessEqual(average_speed, 66)
 
     def test_route_distances_are_plausible_for_new_york_to_los_angeles(self):
         distances = sorted(route["total_distance"] for route in self.routes)

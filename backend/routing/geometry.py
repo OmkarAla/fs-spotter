@@ -1,3 +1,55 @@
+import math
+
+
+EARTH_RADIUS_MILES = 3958.8
+
+
+def distance_miles(start, end):
+    start_latitude, start_longitude = map(math.radians, start)
+    end_latitude, end_longitude = map(math.radians, end)
+    latitude_delta = end_latitude - start_latitude
+    longitude_delta = end_longitude - start_longitude
+
+    value = (
+        math.sin(latitude_delta / 2) ** 2
+        + math.cos(start_latitude)
+        * math.cos(end_latitude)
+        * math.sin(longitude_delta / 2) ** 2
+    )
+    return EARTH_RADIUS_MILES * 2 * math.asin(math.sqrt(value))
+
+
+def polyline_length_miles(points):
+    return sum(
+        distance_miles(start, end)
+        for start, end in zip(points, points[1:])
+    )
+
+
+def point_at_distance(points, target_distance):
+    if not points:
+        raise ValueError("A polyline needs at least one point")
+    if len(points) == 1 or target_distance <= 0:
+        return points[0]
+
+    traversed = 0.0
+    for start, end in zip(points, points[1:]):
+        segment_length = distance_miles(start, end)
+        if target_distance <= traversed + segment_length:
+            fraction = (
+                (target_distance - traversed) / segment_length
+                if segment_length
+                else 0.0
+            )
+            return (
+                start[0] + (end[0] - start[0]) * fraction,
+                start[1] + (end[1] - start[1]) * fraction,
+            )
+        traversed += segment_length
+
+    return points[-1]
+
+
 def decode_polyline(encoded):
     points = []
     index = 0

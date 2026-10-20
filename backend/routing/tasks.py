@@ -4,12 +4,9 @@ from django.db import transaction
 from .models import RouteJob, RouteCheckpoint, RouteOption
 from .clients import RoutingClient, WeatherClient
 from . import engine
+from .sampling import sample_route
 
 logger = logging.getLogger(__name__)
-
-# Numeric severity used to turn per-level risk miles into a single risk score.
-RISK_WEIGHTS = {"Low": 0, "Moderate": 1, "High": 2, "Severe": 3, "No Travel": 4}
-
 
 @shared_task
 def process_route_job(job_id):
@@ -43,53 +40,27 @@ def process_route_job(job_id):
             logger.info(f"Calculating risk for route {route_id}...")
 
             total_distance = route.get('total_distance', 0.0)
-            checkpoints = route['checkpoints']
-            num_checkpoints = len(checkpoints)
-            # Each checkpoint represents an equal slice of the route, so the
-            # miles exposed to a checkpoint's risk level is this segment length.
-            segment_length = (total_distance / num_checkpoints) if num_checkpoints else 0.0
-
-            miles = {}
-            checkpoint_objs = []
-
-            for idx, cp in enumerate(checkpoints):
-                weather = weather_client.get_weather(
-                    cp['lat'],
-                    cp['lon'],
-                    cp['estimated_arrival_time'],
-                )
-                risk_level = engine.calculate_checkpoint_risk(weather, job.load_weight)
-
-                mile_marker = (total_distance * idx / num_checkpoints) if num_checkpoints else 0.0
-                miles[risk_level] = miles.get(risk_level, 0.0) + segment_length
-
-                checkpoint_objs.append(RouteCheckpoint(
-                    job=job,
-                    latitude=cp['lat'],
-                    longitude=cp['lon'],
-                    estimated_arrival=cp['estimated_arrival_time'],
-                    weather_data=weather,
-                    risk_level=risk_level,
-                    mile_marker=mile_marker,
-                ))
-
-            total_risk_score = sum(
-                miles.get(level, 0.0) * weight for level, weight in RISK_WEIGHTS.items()
+            sampled = sample_route(
+                route,
+                job.departure_time,
+                weather_client,
+                job.load_weight,
             )
+            total_risk_score = sampled['total_risk_score']
 
             route_plans.append({
                 'route_id': route_id,
                 'polyline': route.get('polyline', ''),
                 'total_distance': total_distance,
                 'total_time': route.get('total_time', 0.0),
-                'risk_miles': miles,
+                'risk_miles': sampled['risk_miles'],
                 'total_risk_score': total_risk_score,
-                'checkpoint_objs': checkpoint_objs,
+                'checkpoints': sampled['checkpoints'],
             })
 
             all_route_risks.append({
                 'route_id': route_id,
-                'miles': miles,
+                'miles': sampled['risk_miles'],
                 'avg_risk': (
                     total_risk_score / total_distance if total_distance else 0.0
                 ),
@@ -113,9 +84,17 @@ def process_route_job(job_id):
                     risk_miles=plan['risk_miles'],
                     total_risk_score=plan['total_risk_score'],
                 )
-                for cp in plan['checkpoint_objs']:
-                    cp.route = route_option
-                all_checkpoint_objs.extend(plan['checkpoint_objs'])
+                for cp in plan['checkpoints']:
+                    all_checkpoint_objs.append(RouteCheckpoint(
+                        job=job,
+                        route=route_option,
+                        latitude=cp['latitude'],
+                        longitude=cp['longitude'],
+                        estimated_arrival=cp['estimated_arrival'],
+                        weather_data=cp['weather_data'],
+                        risk_level=cp['risk_level'],
+                        mile_marker=cp['mile_marker'],
+                    ))
 
             RouteCheckpoint.objects.bulk_create(all_checkpoint_objs)
 
