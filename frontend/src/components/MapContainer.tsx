@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   CircleMarker,
   MapContainer as LeafletMapContainer,
@@ -66,6 +66,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   forecast = null,
   forecastLoading = false,
 }) => {
+  const [showAllCheckpoints, setShowAllCheckpoints] = useState(false);
   const routePositions = useMemo(
     () =>
       result?.routes.flatMap((route) => decodePolyline(route.polyline)) ?? [],
@@ -117,11 +118,24 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         <MapViewport positions={routePositions} />
         <CorridorHeatLayer points={heatPoints} />
 
-        {result.routes.map((route) => {
+        {result.routes.map((route, routeIndex) => {
           const isSelected = route.route_id === selectedRouteId;
+          const routeForecast = forecast?.routes.find(
+            (candidate) => candidate.route_id === route.route_id,
+          );
+          const routeCheckpoints =
+            routeForecast?.checkpoints ?? route.checkpoints;
           const polyline = decodePolyline(route.polyline);
-          const segments = isSelected
-            ? buildRiskSegments(route, riskCheckpoints)
+          const segments = buildRiskSegments(route, routeCheckpoints);
+          const checkpointStride = isSelected
+            ? 1
+            : Math.max(1, Math.ceil(routeCheckpoints.length / 120));
+          const visibleCheckpoints = isSelected || showAllCheckpoints
+            ? routeCheckpoints.filter(
+                (_, index) =>
+                  index % checkpointStride === 0 ||
+                  index === routeCheckpoints.length - 1,
+              )
             : [];
 
           return (
@@ -136,68 +150,82 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 eventHandlers={{ click: () => onSelectRoute(route.route_id) }}
               />
 
-              {segments.map((segment, index) => (
-                <React.Fragment key={`${route.route_id}-segment-${index}`}>
-                  <Polyline
-                    positions={segment.positions}
-                    pathOptions={{
-                      color: riskColor(segment.risk),
-                      weight: 18,
-                      opacity: 0.16,
-                    }}
-                    interactive={false}
-                  />
-                  <Polyline
-                    positions={segment.positions}
-                    pathOptions={{
-                      color: riskColor(segment.risk),
-                      weight: 6,
-                      opacity: 1,
-                    }}
-                    eventHandlers={{ click: () => onSelectRoute(route.route_id) }}
-                  />
-                </React.Fragment>
-              ))}
+              {isSelected
+                ? segments.map((segment, index) => (
+                    <React.Fragment key={`${route.route_id}-segment-${index}`}>
+                      <Polyline
+                        positions={segment.positions}
+                        pathOptions={{
+                          color: riskColor(segment.risk),
+                          weight: 18,
+                          opacity: 0.16,
+                        }}
+                        interactive={false}
+                      />
+                      <Polyline
+                        positions={segment.positions}
+                        pathOptions={{
+                          color: riskColor(segment.risk),
+                          weight: 6,
+                          opacity: 1,
+                        }}
+                        eventHandlers={{ click: () => onSelectRoute(route.route_id) }}
+                      />
+                    </React.Fragment>
+                  ))
+                : segments.map((segment, index) => (
+                    <Polyline
+                      key={`${route.route_id}-band-${index}`}
+                      positions={segment.positions}
+                      pathOptions={{
+                        color: riskColor(segment.risk),
+                        weight: 3,
+                        opacity: 0.55,
+                      }}
+                      eventHandlers={{ click: () => onSelectRoute(route.route_id) }}
+                    />
+                  ))}
 
-              {isSelected &&
-                riskCheckpoints.map((checkpoint, index) => {
-                  const arrival = 'estimated_arrival' in checkpoint
-                    ? checkpoint.estimated_arrival
+              {visibleCheckpoints.map((checkpoint, index) => {
+                const arrival: string | undefined =
+                  'estimated_arrival' in checkpoint
+                    ? (checkpoint as Checkpoint).estimated_arrival
                     : forecast?.forecast_time;
 
-                  return (
-                    <CircleMarker
-                      key={`${route.route_id}-checkpoint-${index}`}
-                      center={[checkpoint.latitude, checkpoint.longitude]}
-                      radius={4}
-                      pathOptions={{
-                        color: riskColor(checkpoint.risk_level),
-                        fillColor: riskColor(checkpoint.risk_level),
-                        fillOpacity: 0.9,
-                        opacity: 1,
-                        weight: 1,
-                      }}
-                    >
-                      <Popup>
-                        <div className="space-y-1 text-xs">
-                          <p className="font-semibold">
-                            Mile {Math.round(checkpoint.mile_marker)} · {checkpoint.risk_level}
-                          </p>
-                          <p>
-                            {isForecast ? 'Forecast' : 'ETA'}{' '}
-                            {formatTimestamp(arrival)}
-                          </p>
-                          <p>
-                            Wind {checkpoint.weather_data.wind?.toFixed(0) ?? '—'} mph ·
-                            Rain {checkpoint.weather_data.rain?.toFixed(2) ?? '—'} in/hr ·
-                            Snow {checkpoint.weather_data.snow?.toFixed(1) ?? '—'} in/hr
-                          </p>
-                          <p>Drive time {formatDuration(route.total_time)}</p>
-                        </div>
-                      </Popup>
-                    </CircleMarker>
-                  );
-                })}
+                return (
+                  <CircleMarker
+                    key={`${route.route_id}-checkpoint-${index}`}
+                    center={[checkpoint.latitude, checkpoint.longitude]}
+                    radius={isSelected ? 4 : 2.5}
+                    pathOptions={{
+                      color: riskColor(checkpoint.risk_level),
+                      fillColor: riskColor(checkpoint.risk_level),
+                      fillOpacity: isSelected ? 0.9 : 0.65,
+                      opacity: isSelected ? 1 : 0.7,
+                      weight: 1,
+                    }}
+                  >
+                    <Popup>
+                      <div className="space-y-1 text-xs">
+                        <p className="font-semibold">
+                          Route {routeIndex + 1} · Mile {Math.round(checkpoint.mile_marker)} ·{' '}
+                          {checkpoint.risk_level}
+                        </p>
+                        <p>
+                          {routeForecast ? 'Forecast' : 'ETA'}{' '}
+                          {formatTimestamp(arrival)}
+                        </p>
+                        <p>
+                          Wind {checkpoint.weather_data.wind?.toFixed(0) ?? '—'} mph ·
+                          Rain {checkpoint.weather_data.rain?.toFixed(2) ?? '—'} in/hr ·
+                          Snow {checkpoint.weather_data.snow?.toFixed(1) ?? '—'} in/hr
+                        </p>
+                        <p>Drive time {formatDuration(route.total_time)}</p>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
             </React.Fragment>
           );
         })}
@@ -213,6 +241,15 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       <div className="pointer-events-none absolute right-3 top-3 z-[500] rounded-lg border border-amber-500/40 bg-slate-950/85 px-3 py-2 text-xs font-semibold text-amber-300 backdrop-blur">
         Forecast +{forecastTime}h{forecastLoading ? ' · updating' : ''}
       </div>
+
+      <button
+        type="button"
+        aria-pressed={showAllCheckpoints}
+        onClick={() => setShowAllCheckpoints((visible) => !visible)}
+        className="absolute right-3 top-16 z-[500] rounded-lg border border-slate-700/80 bg-slate-950/85 px-3 py-2 text-xs font-medium text-slate-200 backdrop-blur transition-colors hover:border-slate-500 hover:text-white"
+      >
+        {showAllCheckpoints ? 'Hide all checkpoints' : 'Show all checkpoints'}
+      </button>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-[500] rounded-lg border border-slate-700/80 bg-slate-950/85 p-3 backdrop-blur">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">

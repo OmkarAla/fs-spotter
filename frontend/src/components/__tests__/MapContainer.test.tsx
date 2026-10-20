@@ -93,7 +93,16 @@ const result: RouteResult = {
       total_time: 32400,
       risk_miles: { Low: 180 },
       total_risk_score: 0,
-      checkpoints: [],
+      checkpoints: [
+        {
+          latitude: 39.0,
+          longitude: -121.0,
+          estimated_arrival: '2026-10-20T12:00:00Z',
+          weather_data: { wind: 30, rain: 0, snow: 0 },
+          risk_level: 'Moderate',
+          mile_marker: 90,
+        },
+      ],
     },
   ],
 };
@@ -261,5 +270,39 @@ describe('MapContainer', () => {
       screen.getAllByTestId('checkpoint').map((marker) => marker.dataset.radius),
     ).toEqual(['4', '4', '4']);
     expect(screen.getByText(/forecast \+12h/i)).toBeInTheDocument();
+  });
+  it('renders risk bands for every route', () => {
+    render(
+      <MapContainer
+        result={result}
+        selectedRouteId="route-1"
+        onSelectRoute={() => {}}
+        forecastTime={12}
+      />,
+    );
+
+    const allRouteBands = screen
+      .getAllByTestId('polyline')
+      .filter((line) => line.dataset.weight === '3');
+
+    expect(allRouteBands).toHaveLength(1);
+    expect(allRouteBands[0]).toHaveAttribute('data-color', '#F59E0B');
+  });
+
+  it('reveals non-selected route checkpoints on demand', () => {
+    render(
+      <MapContainer
+        result={result}
+        selectedRouteId="route-1"
+        onSelectRoute={() => {}}
+        forecastTime={12}
+      />,
+    );
+
+    expect(screen.getAllByTestId('checkpoint')).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole('button', { name: /show all checkpoints/i }));
+
+    expect(screen.getAllByTestId('checkpoint')).toHaveLength(4);
   });
 });
