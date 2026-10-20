@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { RouteDetail } from '../../types/api';
 import {
   buildRiskSegments,
+  dangerousMiles,
   decodePolyline,
   formatDuration,
   riskColor,
+  severeMiles,
 } from '../geo';
 
 describe('decodePolyline', () => {
@@ -31,6 +33,24 @@ describe('riskColor', () => {
     expect(riskColor('High')).toBe('#EF4444');
     expect(riskColor('Severe')).toBe('#B91C1C');
     expect(riskColor('No Travel')).toBe('#7F1D1D');
+  });
+});
+
+describe('dangerousMiles', () => {
+  it('counts no-travel miles alongside high and severe miles', () => {
+    expect(
+      dangerousMiles({ Low: 500, High: 225, Severe: 125, 'No Travel': 50 }),
+    ).toBe(400);
+  });
+
+  it('returns zero when no dangerous risk miles are present', () => {
+    expect(dangerousMiles({ Low: 500, Moderate: 100 })).toBe(0);
+  });
+});
+
+describe('severeMiles', () => {
+  it('counts no-travel miles alongside severe miles', () => {
+    expect(severeMiles({ High: 200, Severe: 125, 'No Travel': 50 })).toBe(175);
   });
 });
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { useRouteStore } from '../store/routeStore';
 import type { JobStatus as JobStatusType } from '../store/routeStore';
 import type { RiskLevel } from '../types/api';
+import { dangerousMiles } from '../utils/geo';
 
 const STEPS: { status: Exclude<JobStatusType, 'FAILED' | null>; label: string }[] = [
   { status: 'PENDING', label: 'Requesting Route' },
@@ -13,7 +14,7 @@ const activeIndex = (status: JobStatusType): number =>
   STEPS.findIndex((s) => s.status === status);
 
 const summarizeRisk = (riskMiles: Partial<Record<RiskLevel, number>>): string => {
-  const dangerous = (riskMiles.Severe ?? 0) + (riskMiles.High ?? 0);
+  const dangerous = dangerousMiles(riskMiles);
   if (dangerous === 0) return 'no high-risk miles';
   return `${Math.round(dangerous)} high-risk mi`;
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouteStore } from './store/routeStore';
 import { useRoutePolling } from './hooks/useRoutePolling';
 import { RouteControls } from './components/RouteControls';
@@ -14,6 +14,10 @@ const App: React.FC = () => {
   const forecastTime = useRouteStore((state) => state.forecastTime);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   useRoutePolling(currentJobId);
+
+  useEffect(() => {
+    setSelectedRouteId(null);
+  }, [currentJobId, result?.job_id]);
 
   const selectedRoute = result?.routes.find(
     (route) => route.route_id === selectedRouteId,

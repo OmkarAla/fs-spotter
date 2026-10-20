@@ -186,8 +186,14 @@ class ProcessRouteJobTests(APITestCase):
         candidates = recommend.call_args.args[0]
         self.assertEqual(len(candidates), 3)
         for candidate in candidates:
-            self.assertIn('avg_risk', candidate)
-            self.assertGreaterEqual(candidate['avg_risk'], 0)
+            persisted = RouteOption.objects.get(
+                job=job, route_id=candidate['route_id']
+            )
+            self.assertAlmostEqual(
+                candidate['avg_risk'],
+                persisted.total_risk_score / persisted.total_distance,
+                places=12,
+            )
 
     def test_pipeline_uses_departure_time_for_first_checkpoint(self):
         departure = timezone.now() - timezone.timedelta(days=3)

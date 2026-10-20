@@ -1,18 +1,17 @@
 import React from 'react';
-import type { RouteDetail, RouteResult } from '../types/api';
-import { formatDistance, formatDuration } from '../utils/geo';
+import type { RouteResult } from '../types/api';
+import {
+  dangerousMiles,
+  formatDistance,
+  formatDuration,
+  severeMiles,
+} from '../utils/geo';
 
 interface RouteComparisonProps {
   result: RouteResult | null;
   selectedRouteId: string | null;
   onSelectRoute: (routeId: string) => void;
 }
-
-const dangerousMiles = (route: RouteDetail): number =>
-  (route.risk_miles.High ?? 0) + (route.risk_miles.Severe ?? 0) + (route.risk_miles['No Travel'] ?? 0);
-
-const severeMiles = (route: RouteDetail): number =>
-  (route.risk_miles.Severe ?? 0) + (route.risk_miles['No Travel'] ?? 0);
 
 export const RouteComparison: React.FC<RouteComparisonProps> = ({
   result,
@@ -28,13 +27,20 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
         const isSelected = route.route_id === selectedRouteId;
 
         return (
-          <button
+          <div
             key={route.route_id}
-            type="button"
+            role="button"
+            tabIndex={0}
             aria-label={`Select Route ${index + 1}`}
             aria-pressed={isSelected}
             onClick={() => onSelectRoute(route.route_id)}
-            className={`group relative overflow-hidden rounded-xl border p-5 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onSelectRoute(route.route_id);
+              }
+            }}
+            className={`group relative cursor-pointer overflow-hidden rounded-xl border p-5 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
               isSelected
                 ? 'border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-950/30'
                 : 'border-slate-800 bg-slate-900/70 hover:-translate-y-0.5 hover:border-slate-600'
@@ -72,12 +78,14 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
               <div className="flex items-center justify-between text-slate-300">
                 <span>High-risk miles</span>
                 <span className="font-semibold text-red-300">
-                  {Math.round(dangerousMiles(route))} high-risk mi
+                  {Math.round(dangerousMiles(route.risk_miles))} high-risk mi
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>Severe miles</span>
-                <span className="font-semibold">{Math.round(severeMiles(route))}</span>
+                <span className="font-semibold">
+                  {Math.round(severeMiles(route.risk_miles))}
+                </span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>Risk score</span>
@@ -92,7 +100,7 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
             >
               {isSelected ? 'Selected on map' : 'View on map'}
             </span>
-          </button>
+          </div>
         );
       })}
     </section>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { useRouteStore } from '../store/routeStore';
@@ -67,6 +67,34 @@ describe('App results workspace', () => {
     expect(screen.getByTestId('route-map')).toHaveAttribute(
       'data-selected-route',
       'route-1',
+    );
+  });
+
+  it('resets to the recommendation when a new job completes', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /select route 1/i }));
+    expect(screen.getByTestId('route-map')).toHaveAttribute(
+      'data-selected-route',
+      'route-1',
+    );
+
+    act(() => {
+      useRouteStore.setState({
+        currentJobId: 'job-2',
+        jobStatus: 'PENDING',
+        result: null,
+      });
+    });
+    act(() => {
+      useRouteStore.setState({
+        jobStatus: 'COMPLETED',
+        result: { ...result, job_id: 'job-2' },
+      });
+    });
+
+    expect(screen.getByTestId('route-map')).toHaveAttribute(
+      'data-selected-route',
+      'route-2',
     );
   });
 });

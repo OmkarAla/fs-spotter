@@ -71,4 +71,25 @@ describe('RouteComparison', () => {
 
     expect(onSelectRoute).toHaveBeenCalledWith('route-1');
   });
+
+  it('supports keyboard selection without invalid button markup', () => {
+    const onSelectRoute = vi.fn();
+
+    render(
+      <RouteComparison
+        result={result}
+        selectedRouteId="route-2"
+        onSelectRoute={onSelectRoute}
+      />,
+    );
+
+    const card = screen.getByRole('button', { name: /select route 1/i });
+    fireEvent.keyDown(card, { key: 'Enter' });
+    fireEvent.keyDown(card, { key: ' ' });
+
+    expect(card).toHaveAttribute('role', 'button');
+    expect(card).not.toHaveAttribute('type');
+    expect(onSelectRoute).toHaveBeenNthCalledWith(1, 'route-1');
+    expect(onSelectRoute).toHaveBeenNthCalledWith(2, 'route-1');
+  });
 });

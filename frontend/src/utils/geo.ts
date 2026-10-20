@@ -17,6 +17,17 @@ const RISK_COLORS: Record<RiskLevel, string> = {
 
 export const riskColor = (risk: RiskLevel): string => RISK_COLORS[risk];
 
+export const dangerousMiles = (
+  riskMiles: Partial<Record<RiskLevel, number>>,
+): number =>
+  (riskMiles.High ?? 0) +
+  (riskMiles.Severe ?? 0) +
+  (riskMiles['No Travel'] ?? 0);
+
+export const severeMiles = (
+  riskMiles: Partial<Record<RiskLevel, number>>,
+): number => (riskMiles.Severe ?? 0) + (riskMiles['No Travel'] ?? 0);
+
 export const decodePolyline = (encoded: string): LatLng[] => {
   const points: LatLng[] = [];
   let index = 0;
