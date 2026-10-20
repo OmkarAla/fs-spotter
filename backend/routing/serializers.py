@@ -49,3 +49,25 @@ class RouteRequestSerializer(serializers.Serializer):
     destination = serializers.CharField()
     departure_time = serializers.DateTimeField()
     load_weight = serializers.FloatField()
+
+
+class ForecastCheckpointSerializer(serializers.Serializer):
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    mile_marker = serializers.FloatField()
+    weather_data = serializers.JSONField()
+    risk_level = serializers.CharField()
+
+
+class ForecastRouteSerializer(serializers.Serializer):
+    route_id = serializers.CharField()
+    risk_miles = serializers.JSONField()
+    total_risk_score = serializers.FloatField()
+    checkpoints = ForecastCheckpointSerializer(many=True)
+
+
+class RouteForecastSerializer(serializers.Serializer):
+    job_id = serializers.UUIDField()
+    forecast_hour = serializers.IntegerField()
+    forecast_time = serializers.DateTimeField()
+    routes = ForecastRouteSerializer(many=True)

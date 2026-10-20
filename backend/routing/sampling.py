@@ -76,6 +76,16 @@ def sample_route(route, departure_time, weather_client, load_weight):
         distances = sorted(set(distances) | additions)
 
     checkpoints = [checkpoint_at(distance) for distance in distances]
+    summary = summarize_checkpoint_risks(checkpoints)
+
+    return {
+        "checkpoints": checkpoints,
+        "risk_miles": summary["risk_miles"],
+        "total_risk_score": summary["total_risk_score"],
+    }
+
+
+def summarize_checkpoint_risks(checkpoints):
     risk_miles = {}
     for start, end in zip(checkpoints, checkpoints[1:]):
         risk_level = max(
@@ -91,9 +101,7 @@ def sample_route(route, departure_time, weather_client, load_weight):
     total_risk_score = sum(
         miles * RISK_WEIGHTS[level] for level, miles in risk_miles.items()
     )
-
     return {
-        "checkpoints": checkpoints,
         "risk_miles": risk_miles,
         "total_risk_score": round(total_risk_score, 6),
     }
