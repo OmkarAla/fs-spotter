@@ -7,23 +7,43 @@ import {
   TileLayer,
   useMap,
 } from 'react-leaflet';
-import type { RiskLevel, RouteResult } from '../types/api';
+import type {
+  Checkpoint,
+  ForecastCheckpoint,
+  RiskLevel,
+  RouteForecast,
+  RouteResult,
+} from '../types/api';
 import {
+  buildCorridorHeatPoints,
   buildRiskSegments,
   decodePolyline,
   formatDuration,
   riskColor,
   type LatLng,
 } from '../utils/geo';
+import { CorridorHeatLayer } from './CorridorHeatLayer';
 
 interface MapContainerProps {
   result: RouteResult | null;
   selectedRouteId: string | null;
   onSelectRoute: (routeId: string) => void;
   forecastTime?: number;
+  forecast?: RouteForecast | null;
+  forecastLoading?: boolean;
 }
 
 const LEGEND: RiskLevel[] = ['Low', 'Moderate', 'High', 'Severe', 'No Travel'];
+
+const formatTimestamp = (value?: string): string => {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
 
 const MapViewport: React.FC<{ positions: LatLng[] }> = ({ positions }) => {
   const map = useMap();
@@ -43,12 +63,29 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   selectedRouteId,
   onSelectRoute,
   forecastTime = 48,
+  forecast = null,
+  forecastLoading = false,
 }) => {
   const routePositions = useMemo(
     () =>
       result?.routes.flatMap((route) => decodePolyline(route.polyline)) ?? [],
     [result],
   );
+
+  const selectedIndex =
+    result?.routes.findIndex((route) => route.route_id === selectedRouteId) ?? -1;
+  const selectedRoute = result?.routes[selectedIndex] ?? null;
+  const selectedForecast =
+    forecast?.routes.find((route) => route.route_id === selectedRouteId) ?? null;
+  const riskCheckpoints = useMemo<Array<Checkpoint | ForecastCheckpoint>>(
+    () => selectedForecast?.checkpoints ?? selectedRoute?.checkpoints ?? [],
+    [selectedForecast, selectedRoute],
+  );
+  const heatPoints = useMemo(
+    () => buildCorridorHeatPoints(riskCheckpoints),
+    [riskCheckpoints],
+  );
+  const isForecast = Boolean(selectedForecast);
 
   if (!result) {
     return (
@@ -65,22 +102,6 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     );
   }
 
-  const selectedIndex = result.routes.findIndex(
-    (route) => route.route_id === selectedRouteId,
-  );
-  const selectedRoute = result.routes[selectedIndex] ?? null;
-  const firstArrivalMs =
-    selectedRoute && selectedRoute.checkpoints.length > 0
-      ? Math.min(
-          ...selectedRoute.checkpoints.map((checkpoint) =>
-            new Date(checkpoint.estimated_arrival).getTime(),
-          ),
-        )
-      : 0;
-  const horizonMs = firstArrivalMs + forecastTime * 60 * 60 * 1000;
-  const isWithinHorizon = (eta: string) =>
-    new Date(eta).getTime() <= horizonMs;
-
   return (
     <div className="relative overflow-hidden rounded-xl border border-slate-800">
       <LeafletMapContainer
@@ -94,11 +115,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapViewport positions={routePositions} />
+        <CorridorHeatLayer points={heatPoints} />
 
         {result.routes.map((route) => {
           const isSelected = route.route_id === selectedRouteId;
           const polyline = decodePolyline(route.polyline);
-          const segments = buildRiskSegments(route);
+          const segments = isSelected
+            ? buildRiskSegments(route, riskCheckpoints)
+            : [];
 
           return (
             <React.Fragment key={route.route_id}>
@@ -112,50 +136,45 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 eventHandlers={{ click: () => onSelectRoute(route.route_id) }}
               />
 
-              {isSelected &&
-                segments.map((segment, index) => {
-                  const inForecast = isWithinHorizon(
-                    route.checkpoints[index].estimated_arrival,
-                  );
-
-                  return (
-                    <React.Fragment key={`${route.route_id}-segment-${index}`}>
-                      <Polyline
-                        positions={segment.positions}
-                        pathOptions={{
-                          color: riskColor(segment.risk),
-                          weight: 18,
-                          opacity: inForecast ? 0.16 : 0.04,
-                        }}
-                        interactive={false}
-                      />
-                      <Polyline
-                        positions={segment.positions}
-                        pathOptions={{
-                          color: riskColor(segment.risk),
-                          weight: 6,
-                          opacity: inForecast ? 1 : 0.25,
-                        }}
-                        eventHandlers={{ click: () => onSelectRoute(route.route_id) }}
-                      />
-                    </React.Fragment>
-                  );
-                })}
+              {segments.map((segment, index) => (
+                <React.Fragment key={`${route.route_id}-segment-${index}`}>
+                  <Polyline
+                    positions={segment.positions}
+                    pathOptions={{
+                      color: riskColor(segment.risk),
+                      weight: 18,
+                      opacity: 0.16,
+                    }}
+                    interactive={false}
+                  />
+                  <Polyline
+                    positions={segment.positions}
+                    pathOptions={{
+                      color: riskColor(segment.risk),
+                      weight: 6,
+                      opacity: 1,
+                    }}
+                    eventHandlers={{ click: () => onSelectRoute(route.route_id) }}
+                  />
+                </React.Fragment>
+              ))}
 
               {isSelected &&
-                route.checkpoints.map((checkpoint, index) => {
-                  const inForecast = isWithinHorizon(checkpoint.estimated_arrival);
+                riskCheckpoints.map((checkpoint, index) => {
+                  const arrival = 'estimated_arrival' in checkpoint
+                    ? checkpoint.estimated_arrival
+                    : forecast?.forecast_time;
 
                   return (
                     <CircleMarker
                       key={`${route.route_id}-checkpoint-${index}`}
                       center={[checkpoint.latitude, checkpoint.longitude]}
-                      radius={inForecast ? 4 : 2.5}
+                      radius={4}
                       pathOptions={{
                         color: riskColor(checkpoint.risk_level),
                         fillColor: riskColor(checkpoint.risk_level),
-                        fillOpacity: inForecast ? 0.9 : 0.25,
-                        opacity: inForecast ? 1 : 0.3,
+                        fillOpacity: 0.9,
+                        opacity: 1,
                         weight: 1,
                       }}
                     >
@@ -165,16 +184,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                             Mile {Math.round(checkpoint.mile_marker)} · {checkpoint.risk_level}
                           </p>
                           <p>
-                            ETA{' '}
-                            {new Date(checkpoint.estimated_arrival).toLocaleString(
-                              'en-US',
-                              {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                              },
-                            )}
+                            {isForecast ? 'Forecast' : 'ETA'}{' '}
+                            {formatTimestamp(arrival)}
                           </p>
                           <p>
                             Wind {checkpoint.weather_data.wind?.toFixed(0) ?? '—'} mph ·
@@ -200,7 +211,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       </div>
 
       <div className="pointer-events-none absolute right-3 top-3 z-[500] rounded-lg border border-amber-500/40 bg-slate-950/85 px-3 py-2 text-xs font-semibold text-amber-300 backdrop-blur">
-        Forecast +{forecastTime}h
+        Forecast +{forecastTime}h{forecastLoading ? ' · updating' : ''}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-[500] rounded-lg border border-slate-700/80 bg-slate-950/85 p-3 backdrop-blur">
@@ -218,6 +229,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             </span>
           ))}
         </div>
+        <p className="mt-2 text-[10px] text-slate-500">
+          Heat layer blends risk intensity along the selected corridor.
+        </p>
       </div>
     </div>
   );

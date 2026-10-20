@@ -3,6 +3,9 @@ import { useRouteStore } from '../store/routeStore';
 
 export const WeatherSlider: React.FC = () => {
   const forecastTime = useRouteStore((state) => state.forecastTime);
+  const forecast = useRouteStore((state) => state.forecast);
+  const forecastLoading = useRouteStore((state) => state.forecastLoading);
+  const forecastError = useRouteStore((state) => state.forecastError);
   const setForecastTime = useRouteStore((state) => state.setForecastTime);
 
   return (
@@ -16,7 +19,7 @@ export const WeatherSlider: React.FC = () => {
             Forecast Horizon
           </label>
           <p className="mt-1 text-xs text-slate-400">
-            Scan the trip corridor up to 48 hours ahead.
+            Move the slider to inspect corridor weather at a forecast offset.
           </p>
         </div>
         <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-sm font-semibold text-amber-300">
@@ -41,6 +44,23 @@ export const WeatherSlider: React.FC = () => {
         <span>+24h</span>
         <span>+48h</span>
       </div>
+
+      <p className="mt-3 text-xs text-slate-400" aria-live="polite">
+        {forecastLoading
+          ? 'Updating corridor forecast...'
+          : forecastError ??
+            (forecast
+              ? `Corridor valid ${new Date(forecast.forecast_time).toLocaleString(
+                  'en-US',
+                  {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  },
+                )}`
+              : 'Forecast loads after route analysis completes.')}
+      </p>
     </section>
   );
 };

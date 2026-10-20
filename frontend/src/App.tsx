@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouteStore } from './store/routeStore';
 import { useRoutePolling } from './hooks/useRoutePolling';
+import { useForecast } from './hooks/useForecast';
 import { RouteControls } from './components/RouteControls';
 import { JobStatus } from './components/JobStatus';
 import { MapContainer } from './components/MapContainer';
@@ -12,8 +13,11 @@ const App: React.FC = () => {
   const currentJobId = useRouteStore((state) => state.currentJobId);
   const result = useRouteStore((state) => state.result);
   const forecastTime = useRouteStore((state) => state.forecastTime);
+  const forecast = useRouteStore((state) => state.forecast);
+  const forecastLoading = useRouteStore((state) => state.forecastLoading);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   useRoutePolling(currentJobId);
+  useForecast(currentJobId);
 
   useEffect(() => {
     setSelectedRouteId(null);
@@ -101,6 +105,8 @@ const App: React.FC = () => {
               selectedRouteId={activeRoute.route_id}
               onSelectRoute={setSelectedRouteId}
               forecastTime={forecastTime}
+              forecast={forecast}
+              forecastLoading={forecastLoading}
             />
           </section>
         )}

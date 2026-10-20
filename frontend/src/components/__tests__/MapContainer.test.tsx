@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapContainer } from '../MapContainer';
-import type { RouteResult } from '../../types/api';
+import type { RouteForecast, RouteResult } from '../../types/api';
 
 const leafletMock = vi.hoisted(() => ({
   polylines: [] as any[],
@@ -40,7 +40,12 @@ vi.mock('react-leaflet', () => ({
   },
   Tooltip: ({ children }: { children: ReactNode }) => <span>{children}</span>,
   Popup: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-  useMap: () => ({ fitBounds: vi.fn(), invalidateSize: vi.fn() }),
+  useMap: () => ({
+    fitBounds: vi.fn(),
+    invalidateSize: vi.fn(),
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+  }),
 }));
 
 const result: RouteResult = {
@@ -137,13 +142,13 @@ describe('MapContainer', () => {
       '#B91C1C',
     ]);
     expect(riskSegments.map((line) => Number(line.dataset.opacity))).toEqual([
-      1, 0.25, 0.25,
+      1, 1, 1,
     ]);
 
     const checkpoints = screen.getAllByTestId('checkpoint');
     expect(checkpoints).toHaveLength(3);
     expect(checkpoints.map((marker) => Number(marker.dataset.radius))).toEqual([
-      4, 2.5, 2.5,
+      4, 4, 4,
     ]);
   });
 
@@ -196,5 +201,65 @@ describe('MapContainer', () => {
     );
 
     expect(onSelectRoute).toHaveBeenCalledWith('route-2');
+  });
+  it('colors the corridor from forecast data at the selected hour', () => {
+    const forecast: RouteForecast = {
+      job_id: 'job-1',
+      forecast_hour: 12,
+      forecast_time: '2026-10-20T20:00:00Z',
+      routes: [
+        {
+          route_id: 'route-1',
+          risk_miles: { 'No Travel': 200 },
+          total_risk_score: 800,
+          checkpoints: [
+            {
+              latitude: 38.5,
+              longitude: -120.2,
+              weather_data: { wind: 60, rain: 0, snow: 0 },
+              risk_level: 'No Travel',
+              mile_marker: 0,
+            },
+            {
+              latitude: 40.7,
+              longitude: -120.95,
+              weather_data: { wind: 10, rain: 0, snow: 0 },
+              risk_level: 'Low',
+              mile_marker: 100,
+            },
+            {
+              latitude: 43.252,
+              longitude: -126.453,
+              weather_data: { wind: 30, rain: 0, snow: 0 },
+              risk_level: 'Moderate',
+              mile_marker: 190,
+            },
+          ],
+        },
+      ],
+    };
+
+    render(
+      <MapContainer
+        result={result}
+        selectedRouteId="route-1"
+        onSelectRoute={() => {}}
+        forecastTime={12}
+        forecast={forecast}
+      />,
+    );
+
+    const riskSegments = screen
+      .getAllByTestId('polyline')
+      .filter((line) => line.dataset.weight === '6');
+    expect(riskSegments.map((line) => line.dataset.color)).toEqual([
+      '#7F1D1D',
+      '#10B981',
+      '#F59E0B',
+    ]);
+    expect(
+      screen.getAllByTestId('checkpoint').map((marker) => marker.dataset.radius),
+    ).toEqual(['4', '4', '4']);
+    expect(screen.getByText(/forecast \+12h/i)).toBeInTheDocument();
   });
 });

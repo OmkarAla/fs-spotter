@@ -40,3 +40,26 @@ export interface RouteJob {
   created_at: string;
   result?: RouteResult;
 }
+
+
+export interface ForecastCheckpoint {
+  latitude: number;
+  longitude: number;
+  weather_data: Record<string, number>;
+  risk_level: RiskLevel;
+  mile_marker: number;
+}
+
+export interface ForecastRoute {
+  route_id: string;
+  risk_miles: Partial<Record<RiskLevel, number>>;
+  total_risk_score: number;
+  checkpoints: ForecastCheckpoint[];
+}
+
+export interface RouteForecast {
+  job_id: string;
+  forecast_hour: number;
+  forecast_time: string;
+  routes: ForecastRoute[];
+}

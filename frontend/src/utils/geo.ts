@@ -1,6 +1,11 @@
-import type { RiskLevel, RouteDetail } from '../types/api';
+import type { Checkpoint, RiskLevel, RouteDetail } from '../types/api';
 
 export type LatLng = [number, number];
+export type HeatPoint = [number, number, number];
+export type RiskPoint = Pick<
+  Checkpoint,
+  'latitude' | 'longitude' | 'risk_level'
+>;
 
 export interface RiskSegment {
   positions: LatLng[];
@@ -13,6 +18,14 @@ const RISK_COLORS: Record<RiskLevel, string> = {
   High: '#EF4444',
   Severe: '#B91C1C',
   'No Travel': '#7F1D1D',
+};
+
+const RISK_INTENSITY: Record<RiskLevel, number> = {
+  Low: 0.08,
+  Moderate: 0.38,
+  High: 0.62,
+  Severe: 0.85,
+  'No Travel': 1,
 };
 
 export const riskColor = (risk: RiskLevel): string => RISK_COLORS[risk];
@@ -57,12 +70,15 @@ export const formatDuration = (seconds: number): string => {
 export const formatDistance = (miles: number): string =>
   `${Math.round(miles).toLocaleString('en-US')} mi`;
 
-export const buildRiskSegments = (route: RouteDetail): RiskSegment[] => {
+export const buildRiskSegments = (
+  route: RouteDetail,
+  checkpoints: RiskPoint[] = route.checkpoints,
+): RiskSegment[] => {
   const polyline = decodePolyline(route.polyline);
   const destination = polyline[polyline.length - 1];
 
-  return route.checkpoints.map((checkpoint, index) => {
-    const next = route.checkpoints[index + 1];
+  return checkpoints.map((checkpoint, index) => {
+    const next = checkpoints[index + 1];
     return {
       positions: [
         [checkpoint.latitude, checkpoint.longitude],
@@ -98,4 +114,46 @@ const decodeValue = (
     value: result & 1 ? ~(result >> 1) : result >> 1,
     index,
   };
+};
+
+
+export const buildCorridorHeatPoints = (
+  checkpoints: RiskPoint[],
+  subdivisions = 6,
+): HeatPoint[] => {
+  if (checkpoints.length === 0) return [];
+  if (checkpoints.length === 1) {
+    const point = checkpoints[0];
+    return [
+      [point.latitude, point.longitude, RISK_INTENSITY[point.risk_level]],
+    ];
+  }
+
+  const steps = Math.max(1, Math.floor(subdivisions));
+  const points: HeatPoint[] = [];
+
+  for (let index = 0; index < checkpoints.length - 1; index += 1) {
+    const start = checkpoints[index];
+    const end = checkpoints[index + 1];
+    const startIntensity = RISK_INTENSITY[start.risk_level];
+    const endIntensity = RISK_INTENSITY[end.risk_level];
+
+    for (let step = 0; step < steps; step += 1) {
+      const fraction = step / steps;
+      points.push([
+        start.latitude + (end.latitude - start.latitude) * fraction,
+        start.longitude + (end.longitude - start.longitude) * fraction,
+        startIntensity + (endIntensity - startIntensity) * fraction,
+      ]);
+    }
+  }
+
+  const last = checkpoints[checkpoints.length - 1];
+  points.push([
+    last.latitude,
+    last.longitude,
+    RISK_INTENSITY[last.risk_level],
+  ]);
+
+  return points;
 };

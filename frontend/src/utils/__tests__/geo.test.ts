@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RouteDetail } from '../../types/api';
 import {
+  buildCorridorHeatPoints,
   buildRiskSegments,
   dangerousMiles,
   decodePolyline,
@@ -87,5 +88,31 @@ describe('buildRiskSegments', () => {
       { positions: [[38.5, -120.2], [40.7, -120.95]], risk: 'Low' },
       { positions: [[40.7, -120.95], [43.252, -126.453]], risk: 'High' },
     ]);
+  });
+});
+
+
+describe('buildCorridorHeatPoints', () => {
+  it('interpolates a gradient between checkpoint risk levels', () => {
+    const points = buildCorridorHeatPoints(
+      [
+        { latitude: 40, longitude: -100, risk_level: 'Low' },
+        { latitude: 42, longitude: -102, risk_level: 'No Travel' },
+      ],
+      2,
+    );
+
+    expect(points).toHaveLength(3);
+    expect(points[0][2]).toBeGreaterThan(0);
+    expect(points[0][2]).toBeLessThan(0.2);
+    expect(points[2][2]).toBe(1);
+    expect(points[1][2]).toBeGreaterThan(points[0][2]);
+    expect(points[1][2]).toBeLessThan(points[2][2]);
+    expect(points[1][0]).toBeCloseTo(41);
+    expect(points[1][1]).toBeCloseTo(-101);
+  });
+
+  it('returns no points for an empty route', () => {
+    expect(buildCorridorHeatPoints([], 6)).toEqual([]);
   });
 });
