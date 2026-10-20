@@ -72,7 +72,7 @@ export const RouteControls: React.FC = () => {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label htmlFor="loadWeight" className="text-[#F8FAFC] text-sm font-medium">Load Weight (kg)</label>
+          <label htmlFor="loadWeight" className="text-[#F8FAFC] text-sm font-medium">Load Weight (lb)</label>
           <input
             id="loadWeight"
             type="number"
@@ -81,7 +81,7 @@ export const RouteControls: React.FC = () => {
             value={form.loadWeight}
             onChange={(e) => setForm({ ...form, loadWeight: e.target.value })}
             className="bg-slate-900 border border-slate-700 text-[#F8FAFC] p-2 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
-            placeholder="0"
+            placeholder="45000"
             required
           />
         </div>

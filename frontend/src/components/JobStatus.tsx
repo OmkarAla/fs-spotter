@@ -55,7 +55,11 @@ export const JobStatus: React.FC = () => {
               >
                 {isCompleted ? '✓' : index + 1}
               </div>
-              <span className={`text-xs font-medium whitespace-nowrap ${isActive ? 'text-[#F59E0B]' : 'text-slate-500'}`}>
+              <span
+                className={`max-w-[6.5rem] text-center text-[10px] font-medium leading-tight sm:text-xs ${
+                  isActive ? 'text-[#F59E0B]' : 'text-slate-500'
+                }`}
+              >
                 {step.label}
               </span>
             </div>

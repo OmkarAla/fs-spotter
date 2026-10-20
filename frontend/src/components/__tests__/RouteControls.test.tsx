@@ -45,6 +45,13 @@ describe('RouteControls', () => {
     });
   });
 
+  it('labels load weight in pounds to match backend thresholds', () => {
+    render(<RouteControls />);
+
+    expect(screen.getByLabelText(/load weight \(lb\)/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/kg/i)).not.toBeInTheDocument();
+  });
+
   it('surfaces an error when the API call fails', async () => {
     vi.mocked(apiClient.triggerRoute).mockRejectedValue(new Error('boom'));
 

@@ -30,7 +30,9 @@ def process_route_job(job_id):
 
         # Phase 2: Route Acquisition
         logger.info(f"Fetching routes for job {job_id}...")
-        routes = routing_client.get_routes(job.origin, job.destination)
+        routes = routing_client.get_routes(
+            job.origin, job.destination, job.departure_time
+        )
 
         # Phase 3: Weather Analysis — compute in memory; persist later.
         route_plans = []
@@ -88,6 +90,9 @@ def process_route_job(job_id):
             all_route_risks.append({
                 'route_id': route_id,
                 'miles': miles,
+                'avg_risk': (
+                    total_risk_score / total_distance if total_distance else 0.0
+                ),
                 'time': route.get('total_time', 0.0),
             })
 

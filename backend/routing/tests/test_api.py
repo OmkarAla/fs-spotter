@@ -4,6 +4,7 @@ from rest_framework.test import APITestCase
 from routing.models import RouteJob, RouteOption, RouteCheckpoint
 from routing.tasks import process_route_job
 from django.utils import timezone
+from unittest.mock import patch
 import random
 import uuid
 
@@ -166,6 +167,45 @@ class ProcessRouteJobTests(APITestCase):
         # The recommended route points at a persisted route option.
         persisted_ids = {r.route_id for r in route_options}
         self.assertIn(job.recommended_route_id, persisted_ids)
+
+    def test_pipeline_supplies_average_risk_to_recommendation(self):
+        job = RouteJob.objects.create(
+            origin="Chicago",
+            destination="Denver",
+            departure_time=timezone.now(),
+            load_weight=5000.0,
+            status='PENDING',
+        )
+
+        with patch(
+            'routing.tasks.engine.recommend_best_route',
+            side_effect=lambda candidates: candidates[0],
+        ) as recommend:
+            process_route_job(job.id)
+
+        candidates = recommend.call_args.args[0]
+        self.assertEqual(len(candidates), 3)
+        for candidate in candidates:
+            self.assertIn('avg_risk', candidate)
+            self.assertGreaterEqual(candidate['avg_risk'], 0)
+
+    def test_pipeline_uses_departure_time_for_first_checkpoint(self):
+        departure = timezone.now() - timezone.timedelta(days=3)
+        job = RouteJob.objects.create(
+            origin="Chicago",
+            destination="Denver",
+            departure_time=departure,
+            load_weight=5000.0,
+            status='PENDING',
+        )
+
+        process_route_job(job.id)
+
+        first_checkpoint = job.checkpoints.order_by('mile_marker').first()
+        self.assertLess(
+            abs((first_checkpoint.estimated_arrival - departure).total_seconds()),
+            1,
+        )
 
     def test_pipeline_is_idempotent_across_reruns(self):
         job = RouteJob.objects.create(

@@ -133,9 +133,9 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# During tests, run Celery tasks inline (no broker) so the full pipeline is
-# exercised synchronously and tests don't require a running Redis.
-if 'test' in sys.argv:
+# During tests or local eager runs, execute Celery tasks inline (no broker) so
+# the full pipeline works without Redis.
+if 'test' in sys.argv or os.environ.get('CELERY_TASK_ALWAYS_EAGER') == '1':
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
 

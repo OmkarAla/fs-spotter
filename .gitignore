@@ -15,6 +15,6 @@ venv/
 .env
 .env.*
 
-# Frontend (so the unified-repo conversion next session doesn't stage these)
+# Frontend build artifacts
 node_modules/
 dist/

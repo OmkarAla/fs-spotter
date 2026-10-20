@@ -18,7 +18,7 @@ export const useRouteStore = create<RouteState>((set) => ({
   currentJobId: null,
   jobStatus: null,
   result: null,
-  forecastTime: 0,
+  forecastTime: 48,
   setJob: (id) => set({ currentJobId: id, jobStatus: 'PENDING', result: null }),
   updateStatus: (status) => set({ jobStatus: status }),
   setResult: (result) => set({ result }),

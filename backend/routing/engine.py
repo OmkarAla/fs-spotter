@@ -43,6 +43,7 @@ def calculate_checkpoint_risk(weather_data, load_weight):
 def recommend_best_route(routes_data):
     def route_sort_key(route):
         return (
+            route["miles"].get("No Travel", 0),
             route["miles"].get("Severe", 0),
             route["miles"].get("High", 0),
             route.get("avg_risk", 0),
