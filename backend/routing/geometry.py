@@ -50,6 +50,53 @@ def point_at_distance(points, target_distance):
     return points[-1]
 
 
+def simplify_polyline(points, tolerance=0.0002):
+    if len(points) < 3:
+        return list(points)
+
+    keep = [False] * len(points)
+    keep[0] = True
+    keep[-1] = True
+    stack = [(0, len(points) - 1)]
+
+    while stack:
+        start, end = stack.pop()
+        if end <= start + 1:
+            continue
+
+        ax, ay = points[start]
+        bx, by = points[end]
+        dx = bx - ax
+        dy = by - ay
+        denominator = dx * dx + dy * dy
+        max_distance = -1.0
+        max_index = -1
+
+        for index in range(start + 1, end):
+            px, py = points[index]
+            if denominator == 0:
+                distance = math.hypot(px - ax, py - ay)
+            else:
+                projection = max(
+                    0.0,
+                    min(1.0, ((px - ax) * dx + (py - ay) * dy) / denominator),
+                )
+                qx = ax + projection * dx
+                qy = ay + projection * dy
+                distance = math.hypot(px - qx, py - qy)
+
+            if distance > max_distance:
+                max_distance = distance
+                max_index = index
+
+        if max_distance > tolerance:
+            keep[max_index] = True
+            stack.append((start, max_index))
+            stack.append((max_index, end))
+
+    return [point for point, retained in zip(points, keep) if retained]
+
+
 def decode_polyline(encoded):
     points = []
     index = 0

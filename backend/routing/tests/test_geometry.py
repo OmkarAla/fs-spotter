@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from routing.geometry import decode_polyline, encode_polyline
+from routing.geometry import decode_polyline, encode_polyline, simplify_polyline
 
 
 class PolylineGeometryTests(SimpleTestCase):
@@ -17,3 +17,15 @@ class PolylineGeometryTests(SimpleTestCase):
         for (expected_lat, expected_lon), (actual_lat, actual_lon) in zip(points, decoded):
             self.assertAlmostEqual(actual_lat, expected_lat, places=5)
             self.assertAlmostEqual(actual_lon, expected_lon, places=5)
+
+
+class PolylineSimplificationTests(SimpleTestCase):
+    def test_keeps_endpoints_and_removes_collinear_points(self):
+        points = [(0.0, 0.0), (0.0, 0.5), (0.0, 1.0), (1.0, 1.0)]
+
+        simplified = simplify_polyline(points, tolerance=0.0002)
+
+        self.assertEqual(simplified[0], points[0])
+        self.assertEqual(simplified[-1], points[-1])
+        self.assertLess(len(simplified), len(points))
+        self.assertIn((0.0, 1.0), simplified)
