@@ -1,23 +1,30 @@
 from datetime import timedelta
 
 from . import engine
-from .clients import WeatherClient
+from .providers import get_weather_provider
 from .sampling import summarize_checkpoint_risks
 
 
-def build_forecast(job, forecast_hour, weather_client=None):
-    weather_client = weather_client or WeatherClient()
+def build_forecast(job, forecast_hour, weather_provider=None):
+    provider = weather_provider or get_weather_provider()
     forecast_time = job.departure_time + timedelta(hours=forecast_hour)
-    routes = []
 
-    for route in job.route_options.prefetch_related("checkpoints").all():
+    routes = list(job.route_options.prefetch_related('checkpoints').all())
+    coordinates = []
+    for route in routes:
+        for checkpoint in route.checkpoints.all():
+            coordinates.append((checkpoint.latitude, checkpoint.longitude))
+
+    weather_values = provider.get_weather_many(coordinates, forecast_time)
+    weather_by_coordinate = dict(zip(coordinates, weather_values))
+
+    serialized_routes = []
+    for route in routes:
         checkpoints = []
         for checkpoint in route.checkpoints.all():
-            weather = weather_client.get_weather(
-                checkpoint.latitude,
-                checkpoint.longitude,
-                forecast_time.isoformat(),
-            )
+            weather = weather_by_coordinate[
+                (checkpoint.latitude, checkpoint.longitude)
+            ]
             checkpoints.append({
                 "latitude": checkpoint.latitude,
                 "longitude": checkpoint.longitude,
@@ -29,7 +36,7 @@ def build_forecast(job, forecast_hour, weather_client=None):
             })
 
         summary = summarize_checkpoint_risks(checkpoints)
-        routes.append({
+        serialized_routes.append({
             "route_id": route.route_id,
             "risk_miles": summary["risk_miles"],
             "total_risk_score": summary["total_risk_score"],
@@ -40,5 +47,5 @@ def build_forecast(job, forecast_hour, weather_client=None):
         "job_id": job.id,
         "forecast_hour": forecast_hour,
         "forecast_time": forecast_time,
-        "routes": routes,
+        "routes": serialized_routes,
     }

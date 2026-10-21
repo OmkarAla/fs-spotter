@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -8,6 +9,7 @@ from routing.engine import calculate_checkpoint_risk
 from routing.models import RouteCheckpoint, RouteJob, RouteOption
 
 
+@override_settings(WEATHER_PROVIDER='mock')
 class RouteForecastTests(APITestCase):
     def setUp(self):
         self.departure = datetime(2026, 10, 20, 8, tzinfo=timezone.utc)

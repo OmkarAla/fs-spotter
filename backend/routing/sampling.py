@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from . import engine
-from .geometry import decode_polyline, point_at_distance
+from .geometry import decode_polyline, point_at_distance, polyline_length_miles
 
 BASE_INTERVAL_MILES = 50.0
 INTERVAL_BY_RISK = {
@@ -17,30 +17,33 @@ DISTANCE_EPSILON = 0.001
 MAX_REFINEMENT_PASSES = 8
 
 
-def sample_route(route, departure_time, weather_client, load_weight):
-    total_distance = float(route.get("total_distance") or 0.0)
-    total_time = float(route.get("total_time") or 0.0)
-    points = decode_polyline(route.get("polyline", ""))
+def sample_route(route, departure_time, weather_grid, load_weight):
+    total_distance = float(_field(route, "total_distance", 0.0) or 0.0)
+    total_time = float(_field(route, "total_time", 0.0) or 0.0)
+    points = decode_polyline(_field(route, "polyline", ""))
+    geometry_distance = polyline_length_miles(points)
 
     if total_distance <= 0 or len(points) < 2:
         return {"checkpoints": [], "risk_miles": {}, "total_risk_score": 0.0}
 
     departure = _ensure_aware(departure_time)
-    weather_cache = {}
 
     def checkpoint_at(distance):
         distance = round(min(max(distance, 0.0), total_distance), 6)
-        cached = weather_cache.get(distance)
-        if cached is not None:
-            return cached
-
-        latitude, longitude = point_at_distance(points, distance)
+        target_geometry_distance = (
+            geometry_distance * (distance / total_distance)
+            if total_distance
+            else distance
+        )
+        latitude, longitude = point_at_distance(
+            points, target_geometry_distance
+        )
         arrival = departure + timedelta(
             seconds=total_time * (distance / total_distance)
         )
-        weather = weather_client.get_weather(latitude, longitude, arrival.isoformat())
+        weather = weather_grid.get(latitude, longitude, arrival)
         risk_level = engine.calculate_checkpoint_risk(weather, load_weight)
-        checkpoint = {
+        return {
             "latitude": latitude,
             "longitude": longitude,
             "estimated_arrival": arrival,
@@ -48,8 +51,6 @@ def sample_route(route, departure_time, weather_client, load_weight):
             "risk_level": risk_level,
             "mile_marker": distance,
         }
-        weather_cache[distance] = checkpoint
-        return checkpoint
 
     distances = _initial_distances(total_distance)
     for _ in range(MAX_REFINEMENT_PASSES):
@@ -83,6 +84,14 @@ def sample_route(route, departure_time, weather_client, load_weight):
         "risk_miles": summary["risk_miles"],
         "total_risk_score": summary["total_risk_score"],
     }
+
+
+def _field(route, name, default=None):
+    if isinstance(route, dict):
+        value = route.get(name, default)
+    else:
+        value = getattr(route, name, default)
+    return default if value is None else value
 
 
 def summarize_checkpoint_risks(checkpoints):

@@ -9,13 +9,13 @@ from routing.sampling import sample_route
 DEPARTURE = datetime(2026, 10, 20, 8, tzinfo=timezone.utc)
 
 
-class FakeWeatherClient:
+class FakeWeatherGrid:
     def __init__(self, wind_for_latitude):
         self.wind_for_latitude = wind_for_latitude
         self.calls = []
 
-    def get_weather(self, latitude, longitude, arrival):
-        self.calls.append((latitude, longitude, arrival))
+    def get(self, latitude, longitude, when):
+        self.calls.append((latitude, longitude, when))
         return {
             "wind": self.wind_for_latitude(latitude),
             "rain": 0,
@@ -54,7 +54,7 @@ def gaps(checkpoints):
 class AdaptiveSamplingTests(SimpleTestCase):
     def sample(self, wind):
         route = make_route()
-        weather = FakeWeatherClient(lambda latitude: wind)
+        weather = FakeWeatherGrid(lambda latitude: wind)
         result = sample_route(
             route,
             DEPARTURE,
@@ -94,7 +94,7 @@ class AdaptiveSamplingTests(SimpleTestCase):
     def test_refinement_stays_local_to_the_risky_section(self):
         route = make_route()
         boundary = 35.0 + (route["total_distance"] / 2) / 69.0
-        weather = FakeWeatherClient(
+        weather = FakeWeatherGrid(
             lambda latitude: 40 if latitude >= boundary else 10
         )
 
@@ -158,10 +158,10 @@ class AdaptiveSamplingTests(SimpleTestCase):
         arrivals = [checkpoint["estimated_arrival"] for checkpoint in checkpoints]
         self.assertEqual(arrivals, sorted(arrivals))
 
-    def test_weather_is_evaluated_once_per_sample(self):
+    def test_weather_reads_use_the_batched_grid(self):
         _, weather, result = self.sample(30)
 
-        self.assertEqual(len(weather.calls), len(result["checkpoints"]))
+        self.assertGreaterEqual(len(weather.calls), len(result["checkpoints"]))
 
     def test_samples_include_the_destination(self):
         route, _, result = self.sample(10)

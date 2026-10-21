@@ -63,19 +63,18 @@ class GeocodeView(APIView):
 
 
 class RouteTriggerView(APIView):
+    throttle_scope = 'route-trigger'
+
     def post(self, request):
         serializer = RouteRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        job = RouteJob.objects.create(**serializer.validated_data)
-        
-        # Trigger Celery task
+        job = serializer.save()
         process_route_job.delay(job.id)
-        
-        return Response(RouteJobSerializer(job).data, status=status.HTTP_201_CREATED)
-    
-    def _trigger_routing_task(self, job):
-        pass
+        return Response(
+            RouteJobSerializer(job).data,
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class RouteStatusView(APIView):
     def get(self, request, id):
@@ -87,6 +86,10 @@ class RouteStatusView(APIView):
             data['result'] = RouteResultSerializer({
                 'job_id': job.id,
                 'recommended_route_id': job.recommended_route_id,
+                'origin': job.origin_location,
+                'destination': job.destination_location,
+                'departure_time': job.departure_time,
+                'unit_system': job.unit_system,
                 'routes': routes,
             }).data
 
