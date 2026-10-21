@@ -1,10 +1,15 @@
 import React, { useCallback, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useRouteStore } from '../store/routeStore';
-import type { GeocodeResult } from '../types/api';
-import { weightLabel } from '../utils/units';
+import type { GeocodeResult, UnitSystem } from '../types/api';
+import {
+  convertWeight,
+  defaultUnitForCountry,
+  weightLabel,
+} from '../utils/units';
 import { DeparturePicker } from './DeparturePicker';
 import { LocationCombobox } from './LocationCombobox';
+import { UnitToggle } from './UnitToggle';
 
 export const RouteControls: React.FC = () => {
   const setJob = useRouteStore((state) => state.setJob);
@@ -17,6 +22,7 @@ export const RouteControls: React.FC = () => {
   const [departureDate, setDepartureDate] = useState('');
   const [departureTime, setDepartureTime] = useState('');
   const [loadWeight, setLoadWeight] = useState('');
+  const [unitTouched, setUnitTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,16 +31,45 @@ export const RouteControls: React.FC = () => {
     Boolean(origin && destination && departureDate && departureTime) &&
     Number(loadWeight) > 0;
 
-  const handleOriginChange = useCallback(
-    (next: GeocodeResult | null) => {
-      if (next?.timezone !== origin?.timezone) {
-        setDepartureDate('');
-        setDepartureTime('');
+  const convertWeightInput = (nextUnit: UnitSystem) => {
+    if (nextUnit === unitSystem || loadWeight.trim() === '') return;
+    const value = Number(loadWeight);
+    if (!Number.isFinite(value)) return;
+    const converted = convertWeight(
+      value,
+      unitSystem === 'metric' ? 'kg' : 'lb',
+      nextUnit === 'metric' ? 'kg' : 'lb',
+    );
+    setLoadWeight(String(Number(converted.toFixed(2))));
+  };
+
+  const handleUnitChange = (nextUnit: UnitSystem) => {
+    setUnitTouched(true);
+    convertWeightInput(nextUnit);
+    setUnitSystem(nextUnit);
+  };
+
+  const handleOriginChange = (next: GeocodeResult | null) => {
+    if (next?.timezone !== origin?.timezone) {
+      setDepartureDate('');
+      setDepartureTime('');
+    }
+    if (next && !unitTouched) {
+      const nextUnit = defaultUnitForCountry(next.country_code);
+      if (nextUnit !== unitSystem) {
+        convertWeightInput(nextUnit);
+        setUnitSystem(nextUnit);
       }
-      setOrigin(next);
-    },
-    [origin?.timezone],
-  );
+    }
+    setOrigin(next);
+  };
+
+  const handleSwap = () => {
+    setOrigin(destination);
+    setDestination(origin);
+    setDepartureDate('');
+    setDepartureTime('');
+  };
 
   const handleDepartureChange = useCallback((date: string, time: string) => {
     setDepartureDate(date);
@@ -74,23 +109,7 @@ export const RouteControls: React.FC = () => {
     <div className="mx-auto max-w-2xl rounded-xl border border-slate-800 bg-[#0F172A] p-6 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-[#F8FAFC]">Plan a route</h2>
-        <div className="flex items-center gap-1 rounded-md border border-slate-700 p-1">
-          {(['imperial', 'metric'] as const).map((system) => (
-            <button
-              key={system}
-              type="button"
-              aria-pressed={unitSystem === system}
-              onClick={() => setUnitSystem(system)}
-              className={`rounded px-2 py-1 text-xs font-medium capitalize transition-colors ${
-                unitSystem === system
-                  ? 'bg-amber-500 text-[#0F172A]'
-                  : 'text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              {system}
-            </button>
-          ))}
-        </div>
+        <UnitToggle value={unitSystem} onChange={handleUnitChange} />
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -111,6 +130,14 @@ export const RouteControls: React.FC = () => {
             onChange={setDestination}
             placeholder="City, address, or landmark"
           />
+          <button
+            type="button"
+            onClick={handleSwap}
+            disabled={!origin && !destination}
+            className="mt-1 self-start text-xs font-medium text-slate-400 transition-colors hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Swap origin and destination
+          </button>
         </div>
 
         <div className="md:col-span-1">
