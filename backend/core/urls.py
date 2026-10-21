@@ -17,7 +17,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+from routing.views import GeocodeView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/v1/geocode/', GeocodeView.as_view(), name='geocode'),
     path('api/v1/routes/', include('routing.urls')),
 ]

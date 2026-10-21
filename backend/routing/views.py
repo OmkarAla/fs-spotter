@@ -11,6 +11,12 @@ from .serializers import (
     RouteResultSerializer,
 )
 from .tasks import process_route_job
+from .providers import get_geocoding_provider
+from .providers.errors import (
+    ProviderError,
+    ProviderNotConfigured,
+    ProviderRateLimited,
+)
 
 class HealthView(APIView):
     authentication_classes = []
@@ -18,6 +24,42 @@ class HealthView(APIView):
 
     def get(self, request):
         return Response({'status': 'ok'})
+
+
+class GeocodeView(APIView):
+    throttle_scope = 'geocode'
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        query = (request.query_params.get('q') or '').strip()
+        if len(query) < 2:
+            return Response({'results': []})
+        if len(query) > 200:
+            return Response(
+                {'error': 'Search text must be 200 characters or fewer.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            results = get_geocoding_provider().search(query)
+        except ProviderNotConfigured:
+            return Response(
+                {'error': 'Location search is not configured.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except ProviderRateLimited:
+            return Response(
+                {'error': 'Location search is temporarily rate limited.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        except ProviderError:
+            return Response(
+                {'error': 'Location search is temporarily unavailable.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response({'results': results})
 
 
 class RouteTriggerView(APIView):
