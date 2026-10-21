@@ -1,11 +1,8 @@
 import React from 'react';
+import { useRouteStore } from '../store/routeStore';
 import type { RouteResult } from '../types/api';
-import {
-  dangerousMiles,
-  formatDistance,
-  formatDuration,
-  severeMiles,
-} from '../utils/geo';
+import { dangerousMiles, formatDuration, severeMiles } from '../utils/geo';
+import { formatDistance } from '../utils/units';
 
 interface RouteComparisonProps {
   result: RouteResult | null;
@@ -18,10 +15,15 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
   selectedRouteId,
   onSelectRoute,
 }) => {
+  const unitSystem = useRouteStore((state) => state.unitSystem);
+
   if (!result) return null;
 
   return (
-    <section aria-label="Route comparison" className="grid gap-3 md:grid-cols-3">
+    <section
+      aria-label="Route comparison"
+      className="grid gap-3 md:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]"
+    >
       {result.routes.map((route, index) => {
         const isRecommended = route.route_id === result.recommended_route_id;
         const isSelected = route.route_id === selectedRouteId;
@@ -56,14 +58,14 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
               Option {index + 1}
             </p>
             <h3 className="mt-1 text-lg font-bold text-[#F8FAFC]">
-              Route {index + 1}
+              {route.label || `Route ${index + 1}`}
             </h3>
 
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <dt className="text-xs text-slate-500">Distance</dt>
                 <dd className="font-semibold text-slate-200">
-                  {formatDistance(route.total_distance)}
+                  {formatDistance(route.total_distance, unitSystem)}
                 </dd>
               </div>
               <div>
@@ -76,15 +78,15 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
 
             <div className="mt-4 space-y-2 text-xs">
               <div className="flex items-center justify-between text-slate-300">
-                <span>High-risk miles</span>
+                <span>High-risk distance</span>
                 <span className="font-semibold text-red-300">
-                  {Math.round(dangerousMiles(route.risk_miles))} high-risk mi
+                  {formatDistance(dangerousMiles(route.risk_miles), unitSystem)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
-                <span>Severe miles</span>
+                <span>Severe distance</span>
                 <span className="font-semibold">
-                  {Math.round(severeMiles(route.risk_miles))}
+                  {formatDistance(severeMiles(route.risk_miles), unitSystem)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-400">

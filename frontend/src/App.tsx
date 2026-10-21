@@ -7,7 +7,8 @@ import { JobStatus } from './components/JobStatus';
 import { MapContainer } from './components/MapContainer';
 import { RouteComparison } from './components/RouteComparison';
 import { WeatherSlider } from './components/WeatherSlider';
-import { formatDistance, formatDuration } from './utils/geo';
+import { formatDuration } from './utils/geo';
+import { formatDistance } from './utils/units';
 
 const App: React.FC = () => {
   const currentJobId = useRouteStore((state) => state.currentJobId);
@@ -15,6 +16,7 @@ const App: React.FC = () => {
   const forecastTime = useRouteStore((state) => state.forecastTime);
   const forecast = useRouteStore((state) => state.forecast);
   const forecastLoading = useRouteStore((state) => state.forecastLoading);
+  const unitSystem = useRouteStore((state) => state.unitSystem);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   useRoutePolling(currentJobId);
   useForecast(currentJobId);
@@ -64,8 +66,8 @@ const App: React.FC = () => {
             Find the safest lane through the weather.
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Compare three route options against checkpoint-level wind, rain, snow,
-            and load limits — then pick the lane with the fewest severe miles.
+            Compare up to three route options against checkpoint-level wind, rain,
+            snow, and load limits — then pick the lane with the fewest severe miles.
           </p>
         </section>
 
@@ -78,14 +80,15 @@ const App: React.FC = () => {
               <div>
                 <h2 className="text-lg font-bold">Route comparison</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  {result.routes.length} options analyzed · select a card to inspect
-                  the corridor.
+                  {result.routes.length} options analyzed · {result.origin.label} →{' '}
+                  {result.destination.label} · select a card to inspect the
+                  corridor.
                 </p>
               </div>
               <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm">
                 <span className="text-slate-400">Selected</span>
                 <span className="font-semibold text-amber-300">
-                  {formatDistance(activeRoute.total_distance)}
+                  {formatDistance(activeRoute.total_distance, unitSystem)}
                 </span>
                 <span className="h-4 w-px bg-slate-700" />
                 <span className="font-semibold text-slate-200">
@@ -121,8 +124,8 @@ const App: React.FC = () => {
             <div className="grid gap-3">
               {[
                 {
-                  title: 'Three viable lanes',
-                  body: 'Every request returns distinct route options with distance, drive time, and risk-mile totals.',
+                  title: 'Up to three viable lanes',
+                  body: 'Every request returns distinct route options with distance, drive time, and risk-distance totals.',
                 },
                 {
                   title: 'Checkpoint weather',
@@ -153,7 +156,7 @@ const App: React.FC = () => {
       <footer className="border-t border-slate-800/80">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <span>Logistics OS · Weather-aware routing</span>
-          <span>Mock routing and weather data — thresholds follow the project brief.</span>
+          <span>Live road routing and weather data.</span>
         </div>
       </footer>
     </div>

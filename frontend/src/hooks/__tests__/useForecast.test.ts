@@ -16,6 +16,24 @@ vi.mock('../../api/client', () => ({
 const result: RouteResult = {
   job_id: 'job-1',
   recommended_route_id: 'route-1',
+  origin: {
+    label: 'Berlin, Germany',
+    name: 'Berlin',
+    latitude: 52.517,
+    longitude: 13.388,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  destination: {
+    label: 'Munich, Germany',
+    name: 'Munich',
+    latitude: 48.137,
+    longitude: 11.575,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  departure_time: '2026-10-21T08:00:00Z',
+  unit_system: 'imperial',
   routes: [],
 };
 

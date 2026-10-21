@@ -1,14 +1,34 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RouteComparison } from '../RouteComparison';
+import { useRouteStore } from '../../store/routeStore';
 import type { RouteResult } from '../../types/api';
 
 const result: RouteResult = {
   job_id: 'job-1',
   recommended_route_id: 'route-2',
+  origin: {
+    label: 'Berlin, Germany',
+    name: 'Berlin',
+    latitude: 52.517,
+    longitude: 13.388,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  destination: {
+    label: 'Munich, Germany',
+    name: 'Munich',
+    latitude: 48.137,
+    longitude: 11.575,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  departure_time: '2026-10-21T08:00:00Z',
+  unit_system: 'imperial',
   routes: [
     {
       route_id: 'route-1',
+      label: 'Fastest',
       polyline: 'poly-1',
       total_distance: 1200,
       total_time: 72000,
@@ -18,6 +38,7 @@ const result: RouteResult = {
     },
     {
       route_id: 'route-2',
+      label: 'Balanced',
       polyline: 'poly-2',
       total_distance: 1100,
       total_time: 68400,
@@ -27,6 +48,7 @@ const result: RouteResult = {
     },
     {
       route_id: 'route-3',
+      label: 'Scenic',
       polyline: 'poly-3',
       total_distance: 1300,
       total_time: 79200,
@@ -38,7 +60,11 @@ const result: RouteResult = {
 };
 
 describe('RouteComparison', () => {
-  it('shows all routes with distance, time, and high-risk miles', () => {
+  beforeEach(() => {
+    useRouteStore.setState({ unitSystem: 'imperial' });
+  });
+
+  it('shows all routes with labels, distance, time, and high-risk distance', () => {
     render(
       <RouteComparison
         result={result}
@@ -47,13 +73,30 @@ describe('RouteComparison', () => {
       />,
     );
 
-    expect(screen.getByText('Route 1')).toBeInTheDocument();
-    expect(screen.getByText('Route 2')).toBeInTheDocument();
-    expect(screen.getByText('Route 3')).toBeInTheDocument();
+    expect(screen.getByText('Fastest')).toBeInTheDocument();
+    expect(screen.getByText('Balanced')).toBeInTheDocument();
+    expect(screen.getByText('Scenic')).toBeInTheDocument();
     expect(screen.getByText('Recommended')).toBeInTheDocument();
     expect(screen.getAllByText(/1,100 mi/).length).toBeGreaterThan(0);
     expect(screen.getByText(/19h 0m/)).toBeInTheDocument();
-    expect(screen.getByText(/600 high-risk mi/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Route comparison')).toHaveClass(
+      'md:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]',
+    );
+  });
+
+  it('formats distances in the selected unit system', () => {
+    useRouteStore.setState({ unitSystem: 'metric' });
+
+    render(
+      <RouteComparison
+        result={result}
+        selectedRouteId="route-2"
+        onSelectRoute={() => {}}
+      />,
+    );
+
+    expect(screen.getAllByText(/1,931 km/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/483 km/).length).toBeGreaterThan(0);
   });
 
   it('selects a route when its card is clicked', () => {

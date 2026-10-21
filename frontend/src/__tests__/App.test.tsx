@@ -15,9 +15,28 @@ vi.mock('../components/MapContainer', () => ({
 const result: RouteResult = {
   job_id: 'job-1',
   recommended_route_id: 'route-2',
+  origin: {
+    label: 'Berlin, Germany',
+    name: 'Berlin',
+    latitude: 52.517,
+    longitude: 13.388,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  destination: {
+    label: 'Munich, Germany',
+    name: 'Munich',
+    latitude: 48.137,
+    longitude: 11.575,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  departure_time: '2026-10-21T08:00:00Z',
+  unit_system: 'imperial',
   routes: [
     {
       route_id: 'route-1',
+      label: 'Fastest',
       polyline: 'poly-1',
       total_distance: 1200,
       total_time: 72000,
@@ -27,6 +46,7 @@ const result: RouteResult = {
     },
     {
       route_id: 'route-2',
+      label: 'Balanced',
       polyline: 'poly-2',
       total_distance: 1100,
       total_time: 68400,
@@ -44,6 +64,8 @@ describe('App results workspace', () => {
       jobStatus: 'COMPLETED',
       result,
       forecastTime: 12,
+      unitSystem: 'imperial',
+      jobError: null,
     });
   });
 
@@ -51,7 +73,7 @@ describe('App results workspace', () => {
     render(<App />);
 
     expect(screen.getByLabelText(/forecast horizon/i)).toBeInTheDocument();
-    expect(screen.getByText('Route 1')).toBeInTheDocument();
+    expect(screen.getByText('Fastest')).toBeInTheDocument();
     expect(screen.getByText('Recommended')).toBeInTheDocument();
     expect(screen.getByTestId('route-map')).toHaveAttribute(
       'data-selected-route',

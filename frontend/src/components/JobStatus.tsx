@@ -3,6 +3,7 @@ import { useRouteStore } from '../store/routeStore';
 import type { JobStatus as JobStatusType } from '../store/routeStore';
 import type { RiskLevel } from '../types/api';
 import { dangerousMiles } from '../utils/geo';
+import { formatDistance } from '../utils/units';
 
 const STEPS: { status: Exclude<JobStatusType, 'FAILED' | null>; label: string }[] = [
   { status: 'PENDING', label: 'Requesting Route' },
@@ -13,22 +14,27 @@ const STEPS: { status: Exclude<JobStatusType, 'FAILED' | null>; label: string }[
 const activeIndex = (status: JobStatusType): number =>
   STEPS.findIndex((s) => s.status === status);
 
-const summarizeRisk = (riskMiles: Partial<Record<RiskLevel, number>>): string => {
+const summarizeRisk = (
+  riskMiles: Partial<Record<RiskLevel, number>>,
+  unitSystem: 'imperial' | 'metric',
+): string => {
   const dangerous = dangerousMiles(riskMiles);
-  if (dangerous === 0) return 'no high-risk miles';
-  return `${Math.round(dangerous)} high-risk mi`;
+  if (dangerous === 0) return 'no high-risk distance';
+  return `${formatDistance(dangerous, unitSystem)} high-risk`;
 };
 
 export const JobStatus: React.FC = () => {
   const status = useRouteStore((s) => s.jobStatus);
   const result = useRouteStore((s) => s.result);
+  const jobError = useRouteStore((s) => s.jobError);
+  const unitSystem = useRouteStore((s) => s.unitSystem);
 
   if (!status) return null;
 
   if (status === 'FAILED') {
     return (
       <div className="bg-red-900/20 border border-red-500 text-red-200 p-4 rounded-md text-center my-4">
-        Route calculation failed. Please check your inputs and try again.
+        {jobError ?? 'Route calculation failed. Please check your inputs and try again.'}
       </div>
     );
   }
@@ -83,10 +89,10 @@ export const JobStatus: React.FC = () => {
                 <p className="text-slate-300">
                   Recommended:{' '}
                   <span className="text-green-300 font-medium">
-                    {recommended.total_distance.toFixed(0)} mi ·{' '}
+                    {formatDistance(recommended.total_distance, unitSystem)} ·{' '}
                     {(recommended.total_time / 3600).toFixed(1)} hr
                   </span>{' '}
-                  — {summarizeRisk(recommended.risk_miles)}
+                  — {summarizeRisk(recommended.risk_miles, unitSystem)}
                 </p>
               )}
             </div>

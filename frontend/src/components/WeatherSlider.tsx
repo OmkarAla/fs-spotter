@@ -1,9 +1,19 @@
 import React from 'react';
 import { useRouteStore } from '../store/routeStore';
 
+const formatForecastTime = (value: string, timeZone?: string): string =>
+  new Date(value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+  });
+
 export const WeatherSlider: React.FC = () => {
   const forecastTime = useRouteStore((state) => state.forecastTime);
   const forecast = useRouteStore((state) => state.forecast);
+  const result = useRouteStore((state) => state.result);
   const forecastLoading = useRouteStore((state) => state.forecastLoading);
   const forecastError = useRouteStore((state) => state.forecastError);
   const setForecastTime = useRouteStore((state) => state.setForecastTime);
@@ -50,14 +60,9 @@ export const WeatherSlider: React.FC = () => {
           ? 'Updating corridor forecast...'
           : forecastError ??
             (forecast
-              ? `Corridor valid ${new Date(forecast.forecast_time).toLocaleString(
-                  'en-US',
-                  {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  },
+              ? `Corridor valid ${formatForecastTime(
+                  forecast.forecast_time,
+                  result?.origin.timezone,
                 )}`
               : 'Forecast loads after route analysis completes.')}
       </p>

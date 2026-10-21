@@ -59,6 +59,7 @@ describe('buildRiskSegments', () => {
   it('colors each checkpoint span and extends the last span to the destination', () => {
     const route: RouteDetail = {
       route_id: 'route-1',
+      label: 'Fastest',
       polyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
       total_distance: 200,
       total_time: 36000,
