@@ -19,6 +19,10 @@ from django.core.exceptions import ImproperlyConfigured
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+from dotenv import load_dotenv
+
+load_dotenv(BASE_DIR.parent / '.env')
+
 
 def _env_bool(name, default=False):
     raw = os.environ.get(name)
@@ -229,4 +233,31 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 if 'test' in sys.argv or os.environ.get('CELERY_TASK_ALWAYS_EAGER') == '1':
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
+
+# External provider configuration.
+ORS_API_KEY = os.environ.get('ORS_API_KEY', '').strip()
+ORS_BASE_URL = os.environ.get('ORS_BASE_URL', 'https://api.openrouteservice.org').rstrip('/')
+OPEN_METEO_BASE_URL = os.environ.get(
+    'OPEN_METEO_BASE_URL', 'https://api.open-meteo.com'
+).rstrip('/')
+ROUTING_PROVIDER = os.environ.get('ROUTING_PROVIDER', 'ors').strip().lower()
+WEATHER_PROVIDER = os.environ.get('WEATHER_PROVIDER', 'open_meteo').strip().lower()
+PROVIDER_HTTP_TIMEOUT = float(os.environ.get('PROVIDER_HTTP_TIMEOUT', '15'))
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'fs-spotter',
+    }
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'geocode': os.environ.get('GEOCODE_THROTTLE_RATE', '60/min'),
+        'route-trigger': os.environ.get('ROUTE_THROTTLE_RATE', '15/min'),
+    },
+}
 
