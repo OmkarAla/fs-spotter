@@ -29,10 +29,6 @@ input[type='range']::-moz-range-thumb {
   font-family: inherit;
 }
 
-.leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(1.08);
-}
-
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
   background: #0f172a;

@@ -14,6 +14,7 @@ import type {
   RouteForecast,
   RouteResult,
 } from '../types/api';
+import { useRouteStore } from '../store/routeStore';
 import {
   buildCorridorHeatPoints,
   buildRiskSegments,
@@ -22,7 +23,20 @@ import {
   riskColor,
   type LatLng,
 } from '../utils/geo';
+import {
+  formatDistance,
+  formatRain,
+  formatSnow,
+  formatWind,
+} from '../utils/units';
 import { CorridorHeatLayer } from './CorridorHeatLayer';
+
+const mapTilerTileUrl = (): string | null => {
+  const key = (import.meta.env.VITE_MAPTILER_KEY ?? '').trim();
+  return key
+    ? `https://api.maptiler.com/maps/streets-v4-dark/256/{z}/{x}/{y}.png?key=${key}`
+    : null;
+};
 
 interface MapContainerProps {
   result: RouteResult | null;
@@ -35,13 +49,14 @@ interface MapContainerProps {
 
 const LEGEND: RiskLevel[] = ['Low', 'Moderate', 'High', 'Severe', 'No Travel'];
 
-const formatTimestamp = (value?: string): string => {
+const formatTimestamp = (value?: string, timeZone?: string): string => {
   if (!value) return '—';
   return new Date(value).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone,
   });
 };
 
@@ -51,7 +66,7 @@ const MapViewport: React.FC<{ positions: LatLng[] }> = ({ positions }) => {
   useEffect(() => {
     map.invalidateSize();
     if (positions.length > 0) {
-      map.fitBounds(positions, { padding: [40, 40] });
+      map.fitBounds(positions, { padding: [40, 40], maxZoom: 14 });
     }
   }, [map, positions]);
 
@@ -67,6 +82,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   forecastLoading = false,
 }) => {
   const [showAllCheckpoints, setShowAllCheckpoints] = useState(false);
+  const unitSystem = useRouteStore((state) => state.unitSystem);
   const routePositions = useMemo(
     () =>
       result?.routes.flatMap((route) => decodePolyline(route.polyline)) ?? [],
@@ -76,6 +92,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const selectedIndex =
     result?.routes.findIndex((route) => route.route_id === selectedRouteId) ?? -1;
   const selectedRoute = result?.routes[selectedIndex] ?? null;
+  const selectedRoutePositions = useMemo(
+    () =>
+      selectedRoute ? decodePolyline(selectedRoute.polyline) : routePositions,
+    [selectedRoute, routePositions],
+  );
   const selectedForecast =
     forecast?.routes.find((route) => route.route_id === selectedRouteId) ?? null;
   const riskCheckpoints = useMemo<Array<Checkpoint | ForecastCheckpoint>>(
@@ -86,7 +107,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     () => buildCorridorHeatPoints(riskCheckpoints),
     [riskCheckpoints],
   );
-  const isForecast = Boolean(selectedForecast);
+  const tileUrl = mapTilerTileUrl();
 
   if (!result) {
     return (
@@ -106,19 +127,66 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   return (
     <div className="relative overflow-hidden rounded-xl border border-slate-800">
       <LeafletMapContainer
-        center={[39.5, -98.35]}
-        zoom={4}
+        center={[25, 0]}
+        zoom={3}
         scrollWheelZoom
         className="h-[480px] w-full bg-slate-950"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <MapViewport positions={routePositions} />
+        {tileUrl ? (
+          <TileLayer
+            attribution='&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url={tileUrl}
+          />
+        ) : (
+          <div className="absolute inset-x-0 top-0 z-[600] bg-amber-950/90 p-2 text-center text-xs text-amber-200">
+            MapTiler key is missing. Set VITE_MAPTILER_KEY.
+          </div>
+        )}
+        <MapViewport positions={selectedRoutePositions} />
         <CorridorHeatLayer points={heatPoints} />
 
-        {result.routes.map((route, routeIndex) => {
+        <CircleMarker
+          center={[result.origin.latitude, result.origin.longitude]}
+          radius={9}
+          pathOptions={{
+            color: '#22C55E',
+            fillColor: '#22C55E',
+            fillOpacity: 0.9,
+            weight: 2,
+          }}
+        >
+          <Popup>
+            <div className="space-y-1 text-xs">
+              <p className="font-semibold text-emerald-400">Origin</p>
+              <p className="font-medium">{result.origin.name}</p>
+              <p>{result.origin.label}</p>
+              <p>
+                Departure {formatTimestamp(result.departure_time, result.origin.timezone)}
+              </p>
+            </div>
+          </Popup>
+        </CircleMarker>
+
+        <CircleMarker
+          center={[result.destination.latitude, result.destination.longitude]}
+          radius={9}
+          pathOptions={{
+            color: '#EF4444',
+            fillColor: '#EF4444',
+            fillOpacity: 0.9,
+            weight: 2,
+          }}
+        >
+          <Popup>
+            <div className="space-y-1 text-xs">
+              <p className="font-semibold text-red-400">Destination</p>
+              <p className="font-medium">{result.destination.name}</p>
+              <p>{result.destination.label}</p>
+            </div>
+          </Popup>
+        </CircleMarker>
+
+        {result.routes.map((route) => {
           const isSelected = route.route_id === selectedRouteId;
           const routeForecast = forecast?.routes.find(
             (candidate) => candidate.route_id === route.route_id,
@@ -208,17 +276,26 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                     <Popup>
                       <div className="space-y-1 text-xs">
                         <p className="font-semibold">
-                          Route {routeIndex + 1} · Mile {Math.round(checkpoint.mile_marker)} ·{' '}
+                          {route.label} · {formatDistance(checkpoint.mile_marker, unitSystem)} ·{' '}
                           {checkpoint.risk_level}
                         </p>
                         <p>
                           {routeForecast ? 'Forecast' : 'ETA'}{' '}
-                          {formatTimestamp(arrival)}
+                          {formatTimestamp(arrival, result.origin.timezone)}
                         </p>
                         <p>
-                          Wind {checkpoint.weather_data.wind?.toFixed(0) ?? '—'} mph ·
-                          Rain {checkpoint.weather_data.rain?.toFixed(2) ?? '—'} in/hr ·
-                          Snow {checkpoint.weather_data.snow?.toFixed(1) ?? '—'} in/hr
+                          Wind{' '}
+                          {checkpoint.weather_data.wind != null
+                            ? formatWind(checkpoint.weather_data.wind, unitSystem)
+                            : '—'}{' '}
+                          · Rain{' '}
+                          {checkpoint.weather_data.rain != null
+                            ? formatRain(checkpoint.weather_data.rain, unitSystem)
+                            : '—'}{' '}
+                          · Snow{' '}
+                          {checkpoint.weather_data.snow != null
+                            ? formatSnow(checkpoint.weather_data.snow, unitSystem)
+                            : '—'}
                         </p>
                         <p>Drive time {formatDuration(route.total_time)}</p>
                       </div>
@@ -232,7 +309,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       </LeafletMapContainer>
 
       <div className="pointer-events-none absolute left-16 top-3 z-[500] rounded-lg border border-slate-700/80 bg-slate-950/85 px-3 py-2 text-xs text-slate-200 backdrop-blur">
-        {selectedIndex >= 0 ? `Route ${selectedIndex + 1} of ${result.routes.length}` : 'All routes'}
+        {selectedIndex >= 0
+          ? `${selectedRoute?.label ?? `Route ${selectedIndex + 1}`} · ${
+              selectedIndex + 1
+            } of ${result.routes.length}`
+          : 'All routes'}
         {result.recommended_route_id === selectedRouteId && (
           <span className="ml-2 font-semibold text-emerald-400">Recommended</span>
         )}

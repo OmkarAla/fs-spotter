@@ -1,19 +1,31 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapContainer } from '../MapContainer';
+import { useRouteStore } from '../../store/routeStore';
+import { decodePolyline } from '../../utils/geo';
 import type { RouteForecast, RouteResult } from '../../types/api';
 
 const leafletMock = vi.hoisted(() => ({
   polylines: [] as any[],
   markers: [] as any[],
+  tiles: [] as any[],
+  map: {
+    fitBounds: vi.fn(),
+    invalidateSize: vi.fn(),
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+  },
 }));
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: ReactNode }) => (
     <div data-testid="map">{children}</div>
   ),
-  TileLayer: () => null,
+  TileLayer: (props: any) => {
+    leafletMock.tiles.push(props);
+    return null;
+  },
   Polyline: (props: any) => {
     leafletMock.polylines.push(props);
     return (
@@ -40,20 +52,34 @@ vi.mock('react-leaflet', () => ({
   },
   Tooltip: ({ children }: { children: ReactNode }) => <span>{children}</span>,
   Popup: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-  useMap: () => ({
-    fitBounds: vi.fn(),
-    invalidateSize: vi.fn(),
-    addLayer: vi.fn(),
-    removeLayer: vi.fn(),
-  }),
+  useMap: () => leafletMock.map,
 }));
 
 const result: RouteResult = {
   job_id: 'job-1',
   recommended_route_id: 'route-1',
+  origin: {
+    label: 'Berlin, Germany',
+    name: 'Berlin',
+    latitude: 52.517,
+    longitude: 13.388,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  destination: {
+    label: 'Munich, Germany',
+    name: 'Munich',
+    latitude: 48.137,
+    longitude: 11.575,
+    country_code: 'DEU',
+    timezone: 'Europe/Berlin',
+  },
+  departure_time: '2026-10-21T08:00:00Z',
+  unit_system: 'imperial',
   routes: [
     {
       route_id: 'route-1',
+      label: 'Fastest',
       polyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
       total_distance: 200,
       total_time: 36000,
@@ -88,6 +114,7 @@ const result: RouteResult = {
     },
     {
       route_id: 'route-2',
+      label: 'Scenic',
       polyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
       total_distance: 180,
       total_time: 32400,
@@ -111,6 +138,15 @@ describe('MapContainer', () => {
   beforeEach(() => {
     leafletMock.polylines.length = 0;
     leafletMock.markers.length = 0;
+    leafletMock.tiles.length = 0;
+    leafletMock.map.fitBounds.mockClear();
+    leafletMock.map.invalidateSize.mockClear();
+    useRouteStore.setState({ unitSystem: 'imperial' });
+    vi.stubEnv('VITE_MAPTILER_KEY', 'test-key');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('shows an empty state before results exist', () => {
@@ -154,7 +190,9 @@ describe('MapContainer', () => {
       1, 1, 1,
     ]);
 
-    const checkpoints = screen.getAllByTestId('checkpoint');
+    const checkpoints = screen
+      .getAllByTestId('checkpoint')
+      .filter((marker) => marker.dataset.radius === '4');
     expect(checkpoints).toHaveLength(3);
     expect(checkpoints.map((marker) => Number(marker.dataset.radius))).toEqual([
       4, 4, 4,
@@ -187,7 +225,10 @@ describe('MapContainer', () => {
       1, 1, 1,
     ]);
     expect(
-      screen.getAllByTestId('checkpoint').map((marker) => marker.dataset.radius),
+      screen
+        .getAllByTestId('checkpoint')
+        .map((marker) => marker.dataset.radius)
+        .filter((radius) => radius === '4'),
     ).toEqual(['4', '4', '4']);
   });
 
@@ -267,7 +308,10 @@ describe('MapContainer', () => {
       '#F59E0B',
     ]);
     expect(
-      screen.getAllByTestId('checkpoint').map((marker) => marker.dataset.radius),
+      screen
+        .getAllByTestId('checkpoint')
+        .map((marker) => marker.dataset.radius)
+        .filter((radius) => radius === '4'),
     ).toEqual(['4', '4', '4']);
     expect(screen.getByText(/forecast \+12h/i)).toBeInTheDocument();
   });
@@ -299,10 +343,80 @@ describe('MapContainer', () => {
       />,
     );
 
-    expect(screen.getAllByTestId('checkpoint')).toHaveLength(3);
+    const routeCheckpoints = () =>
+      screen
+        .getAllByTestId('checkpoint')
+        .filter((marker) => marker.dataset.radius !== '9');
+
+    expect(routeCheckpoints()).toHaveLength(3);
 
     fireEvent.click(screen.getByRole('button', { name: /show all checkpoints/i }));
 
-    expect(screen.getAllByTestId('checkpoint')).toHaveLength(4);
+    expect(routeCheckpoints()).toHaveLength(4);
+  });
+
+  it('uses MapTiler tiles when a key is configured', () => {
+    render(
+      <MapContainer
+        result={result}
+        selectedRouteId="route-1"
+        onSelectRoute={() => {}}
+      />,
+    );
+
+    expect(leafletMock.tiles[0].url).toContain('streets-v4-dark');
+    expect(leafletMock.tiles[0].url).toContain('key=test-key');
+  });
+
+  it('fits the map to the selected route', () => {
+    render(
+      <MapContainer
+        result={result}
+        selectedRouteId="route-1"
+        onSelectRoute={() => {}}
+      />,
+    );
+
+    const [positions, options] = leafletMock.map.fitBounds.mock.calls.at(-1)!;
+
+    expect(positions).toEqual(decodePolyline(result.routes[0].polyline));
+    expect(options).toEqual({ padding: [40, 40], maxZoom: 14 });
+  });
+
+  it('renders origin and destination markers', () => {
+    render(
+      <MapContainer
+        result={result}
+        selectedRouteId="route-1"
+        onSelectRoute={() => {}}
+      />,
+    );
+
+    const colors = screen
+      .getAllByTestId('checkpoint')
+      .map((marker) => marker.dataset.color);
+
+    expect(colors).toContain('#22C55E');
+    expect(colors).toContain('#EF4444');
+    expect(screen.getByText('Origin')).toBeInTheDocument();
+    expect(screen.getByText('Destination')).toBeInTheDocument();
+  });
+
+  it('renders metric weather values and distances in popups', () => {
+    useRouteStore.setState({ unitSystem: 'metric' });
+
+    render(
+      <MapContainer
+        result={result}
+        selectedRouteId="route-1"
+        onSelectRoute={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/Wind 16 km\/h/)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Rain 0\.0 mm\/hr/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/Fastest · 161 km/)).toBeInTheDocument();
   });
 });
