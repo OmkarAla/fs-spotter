@@ -258,6 +258,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'geocode': os.environ.get('GEOCODE_THROTTLE_RATE', '60/min'),
         'route-trigger': os.environ.get('ROUTE_THROTTLE_RATE', '15/min'),
+        'forecast': os.environ.get('FORECAST_THROTTLE_RATE', '60/min'),
     },
 }
 

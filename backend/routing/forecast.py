@@ -11,9 +11,13 @@ def build_forecast(job, forecast_hour, weather_provider=None):
 
     routes = list(job.route_options.prefetch_related('checkpoints').all())
     coordinates = []
+    seen = set()
     for route in routes:
         for checkpoint in route.checkpoints.all():
-            coordinates.append((checkpoint.latitude, checkpoint.longitude))
+            coordinate = (checkpoint.latitude, checkpoint.longitude)
+            if coordinate not in seen:
+                seen.add(coordinate)
+                coordinates.append(coordinate)
 
     weather_values = provider.get_weather_many(coordinates, forecast_time)
     weather_by_coordinate = dict(zip(coordinates, weather_values))

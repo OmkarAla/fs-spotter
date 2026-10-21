@@ -179,7 +179,9 @@ class RouteApiTests(APITestCase):
         self.assertEqual(result['job_id'], str(job.id))
         self.assertEqual(result['recommended_route_id'], 'route-1')
         self.assertEqual(result['origin']['label'], ORIGIN['label'])
+        self.assertEqual(result['origin']['name'], ORIGIN['label'])
         self.assertEqual(result['destination']['label'], DESTINATION['label'])
+        self.assertEqual(result['destination']['name'], DESTINATION['label'])
         self.assertEqual(result['unit_system'], 'imperial')
         self.assertEqual(len(result['routes']), 1)
 

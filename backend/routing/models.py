@@ -38,6 +38,7 @@ class RouteJob(models.Model):
     def origin_location(self):
         return {
             'label': self.origin,
+            'name': self.origin,
             'latitude': self.origin_latitude,
             'longitude': self.origin_longitude,
             'country_code': self.origin_country_code,
@@ -48,6 +49,7 @@ class RouteJob(models.Model):
     def destination_location(self):
         return {
             'label': self.destination,
+            'name': self.destination,
             'latitude': self.destination_latitude,
             'longitude': self.destination_longitude,
             'country_code': self.destination_country_code,

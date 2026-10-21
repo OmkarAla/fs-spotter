@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -100,6 +101,8 @@ class RouteStatusView(APIView):
 
 
 class RouteForecastView(APIView):
+    throttle_scope = 'forecast'
+
     def get(self, request, id):
         job = get_object_or_404(RouteJob, pk=id)
         raw_hour = request.query_params.get('hour', '0')
@@ -124,5 +127,24 @@ class RouteForecastView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        forecast = build_forecast(job, forecast_hour)
-        return Response(RouteForecastSerializer(forecast).data)
+        cache_key = f'route-forecast:{job.id}:{forecast_hour}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        try:
+            forecast = build_forecast(job, forecast_hour)
+        except ProviderRateLimited:
+            return Response(
+                {'error': 'Weather service is temporarily rate limited.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        except ProviderError as exc:
+            return Response(
+                {'error': str(exc) or 'Weather service is temporarily unavailable.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        data = RouteForecastSerializer(forecast).data
+        cache.set(cache_key, data, timeout=600)
+        return Response(data)

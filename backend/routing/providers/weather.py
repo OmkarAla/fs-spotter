@@ -8,6 +8,8 @@ from routing.geometry import point_at_distance, polyline_length_miles
 from .errors import ProviderError, ProviderRateLimited
 
 GRID_INTERVAL_MILES = 10.0
+MAX_COORDINATES_PER_REQUEST = 100
+FORECAST_HORIZON_DAYS = 14
 
 
 def _as_utc(value):
@@ -63,36 +65,53 @@ class OpenMeteoProvider:
         if not coordinates:
             return []
 
-        params = {
-            'latitude': ','.join(f'{lat:.5f}' for lat, lon in coordinates),
-            'longitude': ','.join(f'{lon:.5f}' for lat, lon in coordinates),
-            'hourly': 'wind_speed_10m,rain,snowfall',
-            'start_date': start_date.isoformat(),
-            'end_date': end_date.isoformat(),
-            'wind_speed_unit': 'mph',
-            'precipitation_unit': 'inch',
-            'timezone': 'UTC',
-        }
-
-        try:
-            response = self.session.get(
-                f'{self.base_url}/v1/forecast',
-                params=params,
-                timeout=self.timeout,
+        max_date = (
+            datetime.now(timezone.utc).date()
+            + timedelta(days=FORECAST_HORIZON_DAYS)
+        )
+        if start_date > max_date:
+            raise ProviderError(
+                'Weather forecast is unavailable for this departure date.'
             )
-        except Exception as exc:
-            raise ProviderError('Weather service is unavailable.') from exc
+        end_date = max(start_date, min(end_date, max_date))
 
-        if response.status_code == 429:
-            raise ProviderRateLimited('Weather rate limit reached.')
-        if response.status_code >= 400:
-            raise ProviderError('Weather service returned an error.')
+        payload = []
+        for offset in range(0, len(coordinates), MAX_COORDINATES_PER_REQUEST):
+            chunk = coordinates[offset:offset + MAX_COORDINATES_PER_REQUEST]
+            params = {
+                'latitude': ','.join(f'{lat:.5f}' for lat, lon in chunk),
+                'longitude': ','.join(f'{lon:.5f}' for lat, lon in chunk),
+                'hourly': 'wind_speed_10m,rain,snowfall',
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'wind_speed_unit': 'mph',
+                'precipitation_unit': 'inch',
+                'timezone': 'UTC',
+            }
 
-        payload = response.json()
-        if isinstance(payload, dict):
-            payload = [payload]
-        if len(payload) != len(coordinates):
-            raise ProviderError('Weather service returned an unexpected payload.')
+            try:
+                response = self.session.get(
+                    f'{self.base_url}/v1/forecast',
+                    params=params,
+                    timeout=self.timeout,
+                )
+            except Exception as exc:
+                raise ProviderError('Weather service is unavailable.') from exc
+
+            if response.status_code == 429:
+                raise ProviderRateLimited('Weather rate limit reached.')
+            if response.status_code >= 400:
+                raise ProviderError('Weather service returned an error.')
+
+            chunk_payload = response.json()
+            if isinstance(chunk_payload, dict):
+                chunk_payload = [chunk_payload]
+            if len(chunk_payload) != len(chunk):
+                raise ProviderError(
+                    'Weather service returned an unexpected payload.'
+                )
+            payload.extend(chunk_payload)
+
         return payload
 
     def get_weather_many(self, coordinates, when):

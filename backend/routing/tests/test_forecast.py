@@ -1,17 +1,22 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from routing.engine import calculate_checkpoint_risk
+from routing.forecast import build_forecast
 from routing.models import RouteCheckpoint, RouteJob, RouteOption
+from routing.providers.errors import ProviderError
 
 
 @override_settings(WEATHER_PROVIDER='mock')
 class RouteForecastTests(APITestCase):
     def setUp(self):
+        cache.clear()
         self.departure = datetime(2026, 10, 20, 8, tzinfo=timezone.utc)
         self.job = RouteJob.objects.create(
             origin="Chicago",
@@ -123,3 +128,19 @@ class RouteForecastTests(APITestCase):
         response = self.client.get(url, {"hour": 12})
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch('routing.views.build_forecast', side_effect=ProviderError('Weather unavailable.'))
+    def test_forecast_provider_failure_returns_502(self, _build):
+        response = self.get_forecast(12)
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn('Weather', response.data['error'])
+
+    @patch('routing.views.build_forecast', wraps=build_forecast)
+    def test_forecast_is_cached_per_job_and_hour(self, mocked_build):
+        first = self.get_forecast(12)
+        second = self.get_forecast(12)
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(mocked_build.call_count, 1)
