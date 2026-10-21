@@ -9,6 +9,7 @@ export const useRoutePolling = (jobId: string | null) => {
   const jobStatus = useRouteStore((s) => s.jobStatus);
   const updateStatus = useRouteStore((s) => s.updateStatus);
   const setResult = useRouteStore((s) => s.setResult);
+  const setJobError = useRouteStore((s) => s.setJobError);
   const transientErrors = useRef(0);
 
   useEffect(() => {
@@ -29,6 +30,10 @@ export const useRoutePolling = (jobId: string | null) => {
         updateStatus(job.status);
         if (job.status === 'COMPLETED' && job.result) {
           setResult(job.result);
+          setJobError(null);
+        }
+        if (job.status === 'FAILED') {
+          setJobError(job.error_message || 'Route calculation failed.');
         }
       } catch {
         if (!active) return;
@@ -36,6 +41,7 @@ export const useRoutePolling = (jobId: string | null) => {
         transientErrors.current += 1;
         if (transientErrors.current >= MAX_TRANSIENT_ERRORS) {
           updateStatus('FAILED');
+          setJobError('Route calculation failed.');
         }
       }
     };
@@ -47,5 +53,5 @@ export const useRoutePolling = (jobId: string | null) => {
       active = false;
       clearInterval(intervalId);
     };
-  }, [jobId, jobStatus, updateStatus, setResult]);
+  }, [jobId, jobStatus, updateStatus, setResult, setJobError]);
 };

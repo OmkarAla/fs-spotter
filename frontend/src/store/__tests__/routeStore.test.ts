@@ -18,6 +18,8 @@ describe('routeStore forecast state', () => {
       forecast,
       forecastLoading: false,
       forecastError: null,
+      jobError: 'old failure',
+      unitSystem: 'metric',
     });
   });
 
@@ -38,5 +40,14 @@ describe('routeStore forecast state', () => {
     expect(useRouteStore.getState().forecast).toBeNull();
     expect(useRouteStore.getState().forecastError).toBeNull();
     expect(useRouteStore.getState().forecastLoading).toBe(false);
+    expect(useRouteStore.getState().jobError).toBeNull();
+  });
+
+  it('stores job errors and unit preference', () => {
+    useRouteStore.getState().setJobError('No route found.');
+    useRouteStore.getState().setUnitSystem('imperial');
+
+    expect(useRouteStore.getState().jobError).toBe('No route found.');
+    expect(useRouteStore.getState().unitSystem).toBe('imperial');
   });
 });

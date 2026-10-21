@@ -1,17 +1,21 @@
 import { create } from 'zustand';
-import type { RouteForecast, RouteResult } from '../types/api';
+import type { RouteForecast, RouteResult, UnitSystem } from '../types/api';
 
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null;
 
 interface RouteState {
   currentJobId: string | null;
   jobStatus: JobStatus;
+  jobError: string | null;
+  unitSystem: UnitSystem;
   result: RouteResult | null;
   forecastTime: number;
   forecast: RouteForecast | null;
   forecastLoading: boolean;
   forecastError: string | null;
   setJob: (id: string) => void;
+  setJobError: (error: string | null) => void;
+  setUnitSystem: (unit: UnitSystem) => void;
   updateStatus: (status: JobStatus) => void;
   setResult: (result: RouteResult) => void;
   setForecastTime: (time: number) => void;
@@ -23,6 +27,8 @@ interface RouteState {
 export const useRouteStore = create<RouteState>((set) => ({
   currentJobId: null,
   jobStatus: null,
+  jobError: null,
+  unitSystem: 'imperial',
   result: null,
   forecastTime: 48,
   forecast: null,
@@ -32,11 +38,14 @@ export const useRouteStore = create<RouteState>((set) => ({
     set({
       currentJobId: id,
       jobStatus: 'PENDING',
+      jobError: null,
       result: null,
       forecast: null,
       forecastLoading: false,
       forecastError: null,
     }),
+  setJobError: (jobError) => set({ jobError }),
+  setUnitSystem: (unitSystem) => set({ unitSystem }),
   updateStatus: (status) => set({ jobStatus: status }),
   setResult: (result) => set({ result }),
   setForecastTime: (time) => set({ forecastTime: time }),

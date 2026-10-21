@@ -1,4 +1,9 @@
-import { RouteForecast, RouteRequest, RouteJob } from '../types/api';
+import {
+  GeocodeResult,
+  RouteForecast,
+  RouteRequest,
+  RouteJob,
+} from '../types/api';
 
 const configuredBaseUrl = (import.meta.env.VITE_API_URL ?? '').trim();
 const API_BASE_URL = configuredBaseUrl
@@ -6,6 +11,24 @@ const API_BASE_URL = configuredBaseUrl
   : '';
 
 const apiUrl = (path: string): string => `${API_BASE_URL}${path}`;
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+const responseError = async (response: Response): Promise<ApiError> => {
+  let message = `API Error: ${response.status} ${response.statusText}`;
+  try {
+    const body = await response.json();
+    message = body.error ?? body.detail ?? message;
+  } catch {
+    // Keep the status text fallback.
+  }
+  return new ApiError(response.status, message);
+};
 
 export const apiClient = {
   async triggerRoute(data: RouteRequest): Promise<RouteJob> {
@@ -18,7 +41,7 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      throw await responseError(response);
     }
 
     return response.json();
@@ -35,7 +58,7 @@ export const apiClient = {
     );
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      throw await responseError(response);
     }
 
     return response.json();
@@ -47,9 +70,26 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      throw await responseError(response);
     }
 
     return response.json();
+  },
+
+  async searchLocations(
+    query: string,
+    signal?: AbortSignal,
+  ): Promise<GeocodeResult[]> {
+    const response = await fetch(
+      apiUrl(`/api/v1/geocode/?q=${encodeURIComponent(query)}`),
+      { signal },
+    );
+
+    if (!response.ok) {
+      throw await responseError(response);
+    }
+
+    const body = await response.json();
+    return body.results ?? [];
   },
 };

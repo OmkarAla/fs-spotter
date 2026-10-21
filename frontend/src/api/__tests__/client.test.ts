@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from '../client';
+import { apiClient, ApiError } from '../client';
 
 const forecast = {
   job_id: 'job-1',
@@ -60,6 +60,58 @@ describe('apiClient.getForecast', () => {
 
     await expect(apiClient.getForecast('job-1', 12)).rejects.toThrow(
       '409 Conflict',
+    );
+  });
+
+  it('uses the backend error message in ApiError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        json: async () => ({ error: 'Location search is not configured.' }),
+      }),
+    );
+
+    const error = await apiClient.searchLocations('Berlin').catch((err) => err);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: 503,
+      message: 'Location search is not configured.',
+    });
+  });
+});
+
+describe('apiClient.searchLocations', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('encodes the query and returns locations', async () => {
+    const results = [{
+      label: 'New York, NY, USA',
+      name: 'New York',
+      latitude: 40.7128,
+      longitude: -74.006,
+      country_code: 'USA',
+      timezone: 'America/New_York',
+    }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      apiClient.searchLocations('New York & Co'),
+    ).resolves.toEqual(results);
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      '/api/v1/geocode/?q=New%20York%20%26%20Co',
     );
   });
 });

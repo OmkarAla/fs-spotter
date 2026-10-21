@@ -22,12 +22,26 @@ const deferred = <T,>() => {
   return { promise, resolve };
 };
 
+const origin = {
+  label: 'New York, USA',
+  name: 'New York',
+  latitude: 40.7128,
+  longitude: -74.006,
+  country_code: 'USA',
+  timezone: 'America/New_York',
+};
+
 const makeResult = (): RouteResult => ({
   job_id: 'job-1',
   recommended_route_id: 'route-1',
+  origin,
+  destination: { ...origin, label: 'Los Angeles, USA', name: 'Los Angeles' },
+  departure_time: '2026-10-21T10:00:00Z',
+  unit_system: 'imperial',
   routes: [
     {
       route_id: 'route-1',
+      label: 'Fastest',
       polyline: 'poly',
       total_distance: 1000,
       total_time: 36000,
@@ -42,7 +56,12 @@ describe('useRoutePolling', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    useRouteStore.setState({ currentJobId: null, jobStatus: null, result: null });
+    useRouteStore.setState({
+      currentJobId: null,
+      jobStatus: null,
+      jobError: null,
+      result: null,
+    });
   });
 
   afterEach(() => {
@@ -83,6 +102,23 @@ describe('useRoutePolling', () => {
     expect(apiClient.getRouteStatus).toHaveBeenCalledWith('job-1');
     expect(useRouteStore.getState().jobStatus).toBe('COMPLETED');
     expect(useRouteStore.getState().result).toBe(completed);
+  });
+
+  it('stores the backend error message when the job fails', async () => {
+    vi.mocked(apiClient.getRouteStatus).mockResolvedValue({
+      id: 'job-1',
+      status: 'FAILED',
+      created_at: '2026-10-20T10:00:00Z',
+      error_message: 'No truck route found between these locations.',
+    });
+
+    renderHook(() => useRoutePolling('job-1'));
+    await flush();
+
+    expect(useRouteStore.getState().jobStatus).toBe('FAILED');
+    expect(useRouteStore.getState().jobError).toBe(
+      'No truck route found between these locations.',
+    );
   });
 
   it('tolerates transient errors, then fails after repeated strikes', async () => {

@@ -2,11 +2,25 @@ export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Severe' | 'No Travel';
 
 export type JobStatusValue = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
+export type UnitSystem = 'imperial' | 'metric';
+
+export interface GeocodeResult {
+  label: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country_code: string;
+  timezone: string;
+}
+
 export interface RouteRequest {
-  origin: string;
-  destination: string;
+  origin: GeocodeResult;
+  destination: GeocodeResult;
+  departure_date: string;
   departure_time: string;
   load_weight: number;
+  load_weight_unit: 'lb' | 'kg';
+  unit_system: UnitSystem;
 }
 
 export interface Checkpoint {
@@ -20,6 +34,7 @@ export interface Checkpoint {
 
 export interface RouteDetail {
   route_id: string;
+  label: string;
   polyline: string;
   total_distance: number;
   total_time: number;
@@ -31,6 +46,10 @@ export interface RouteDetail {
 export interface RouteResult {
   job_id: string;
   recommended_route_id: string | null;
+  origin: GeocodeResult;
+  destination: GeocodeResult;
+  departure_time: string;
+  unit_system: UnitSystem;
   routes: RouteDetail[];
 }
 
@@ -38,6 +57,11 @@ export interface RouteJob {
   id: string;
   status: JobStatusValue;
   created_at: string;
+  error_message?: string;
+  origin?: GeocodeResult;
+  destination?: GeocodeResult;
+  departure_time?: string;
+  unit_system?: UnitSystem;
   result?: RouteResult;
 }
 
