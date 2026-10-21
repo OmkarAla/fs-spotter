@@ -30,6 +30,14 @@ services:
           name: fs-spotter-cache
           type: keyvalue
           property: connectionString
+      - key: ORS_API_KEY
+        sync: false
+      - key: ROUTING_PROVIDER
+        value: ors
+      - key: WEATHER_PROVIDER
+        value: open_meteo
+      - key: PROVIDER_HTTP_TIMEOUT
+        value: "90"
 
   - type: worker
     name: fs-spotter-worker
@@ -60,6 +68,14 @@ services:
           name: fs-spotter-cache
           type: keyvalue
           property: connectionString
+      - key: ORS_API_KEY
+        sync: false
+      - key: ROUTING_PROVIDER
+        value: ors
+      - key: WEATHER_PROVIDER
+        value: open_meteo
+      - key: PROVIDER_HTTP_TIMEOUT
+        value: "90"
 
   - type: web
     name: fs-spotter
@@ -75,6 +91,8 @@ services:
           name: fs-spotter-api
           type: web
           property: host
+      - key: VITE_MAPTILER_KEY
+        sync: false
     routes:
       - type: rewrite
         source: /*

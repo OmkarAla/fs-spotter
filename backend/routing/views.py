@@ -69,7 +69,10 @@ class RouteTriggerView(APIView):
         serializer = RouteRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         job = serializer.save()
-        process_route_job.delay(job.id)
+        try:
+            process_route_job.delay(job.id)
+        except ProviderError:
+            job.refresh_from_db()
         return Response(
             RouteJobSerializer(job).data,
             status=status.HTTP_201_CREATED,

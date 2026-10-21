@@ -242,7 +242,7 @@ OPEN_METEO_BASE_URL = os.environ.get(
 ).rstrip('/')
 ROUTING_PROVIDER = os.environ.get('ROUTING_PROVIDER', 'ors').strip().lower()
 WEATHER_PROVIDER = os.environ.get('WEATHER_PROVIDER', 'open_meteo').strip().lower()
-PROVIDER_HTTP_TIMEOUT = float(os.environ.get('PROVIDER_HTTP_TIMEOUT', '15'))
+PROVIDER_HTTP_TIMEOUT = float(os.environ.get('PROVIDER_HTTP_TIMEOUT', '90'))
 
 CACHES = {
     'default': {

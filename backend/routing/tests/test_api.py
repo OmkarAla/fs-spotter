@@ -87,6 +87,19 @@ class RouteApiTests(APITestCase):
             RouteJob.objects.first().load_weight, 2204.6226218, places=4
         )
 
+    @patch(
+        'routing.tasks.get_routing_provider',
+        side_effect=ProviderError('Routing service is unavailable.'),
+    )
+    def test_route_trigger_surfaces_provider_failure_as_failed_job(self, _factory):
+        response = self.client.post(self.trigger_url, self.valid_payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['status'], 'FAILED')
+        self.assertEqual(
+            response.data['error_message'], 'Routing service is unavailable.'
+        )
+
     def test_route_trigger_invalid(self):
         invalid_payload = {'origin': 'New York'}  # Missing fields
         response = self.client.post(self.trigger_url, invalid_payload, format='json')
