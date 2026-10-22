@@ -45,7 +45,7 @@ class OrsGeocodingProvider:
 
         try:
             response = self.session.get(
-                f'{self.base_url}/geocode/autocomplete',
+                f'{self.base_url}/pelias/v1/autocomplete',
                 params={'text': query, 'size': limit},
                 headers={'Authorization': self.api_key},
                 timeout=self.timeout,

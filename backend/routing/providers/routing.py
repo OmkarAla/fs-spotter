@@ -79,7 +79,7 @@ class OrsRoutingProvider:
 
         try:
             response = self.session.post(
-                f'{self.base_url}/v2/directions/driving-hgv/geojson',
+                f'{self.base_url}/openrouteservice/v2/directions/driving-hgv/geojson',
                 json=payload,
                 headers={
                     'Authorization': self.api_key,

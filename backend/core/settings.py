@@ -236,7 +236,7 @@ if 'test' in sys.argv or os.environ.get('CELERY_TASK_ALWAYS_EAGER') == '1':
 
 # External provider configuration.
 ORS_API_KEY = os.environ.get('ORS_API_KEY', '').strip()
-ORS_BASE_URL = os.environ.get('ORS_BASE_URL', 'https://api.openrouteservice.org').rstrip('/')
+ORS_BASE_URL = os.environ.get('ORS_BASE_URL', 'https://api.heigit.org').rstrip('/')
 OPEN_METEO_BASE_URL = os.environ.get(
     'OPEN_METEO_BASE_URL', 'https://api.open-meteo.com'
 ).rstrip('/')
