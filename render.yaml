@@ -25,11 +25,6 @@ services:
         fromDatabase:
           name: fs-spotter-db
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: fs-spotter-cache
-          type: keyvalue
-          property: connectionString
       - key: ORS_API_KEY
         sync: false
       - key: ROUTING_PROVIDER
