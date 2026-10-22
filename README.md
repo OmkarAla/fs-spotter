@@ -46,6 +46,9 @@ Celery pipeline: compute in memory → one atomic transaction → idempotent per
 Postgres (Render) — RouteJob / RouteOption / RouteCheckpoint
 ```
 
+Every push runs a GitHub Actions CI matrix (backend Django suite + frontend Vitest /
+typecheck / production build); Render's Blueprint picks up the same push and redeploys.
+
 Key backend pieces:
 
 - `backend/routing/providers/` — provider gateway (routing / geocoding / weather) with typed
@@ -114,7 +117,8 @@ cd frontend && npm run test                           # 82 tests
 cd frontend && npx tsc --noEmit && npm run build      # typecheck + production build
 ```
 
-Test suites never call live APIs — mock providers keep them deterministic.
+Test suites never call live APIs — mock providers keep them deterministic. The same commands
+are the two jobs of the repository's CI workflow (`.github/workflows/ci.yml`).
 
 ## Known limitations
 
