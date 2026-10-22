@@ -27,6 +27,13 @@ backend/staticfiles/
 .playwright-mcp/
 
 # Agent runtime files (local tooling byproducts)
-.claude/
+.claude
 CLAUDE.md
+AGENTS.md
 skills_list.md
+
+# Internal working docs (not for public repo)
+docs/
+explain.md
+plan.md
+progress.md
