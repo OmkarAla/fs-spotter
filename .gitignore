@@ -25,3 +25,8 @@ backend/staticfiles/
 
 # Playwright QA artifacts
 .playwright-mcp/
+
+# Agent runtime files (local tooling byproducts)
+.claude/
+CLAUDE.md
+skills_list.md
