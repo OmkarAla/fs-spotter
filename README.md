@@ -1,6 +1,6 @@
-# fs-spotter — Weather-aware truck routing
+# Weather-aware Truck Routing
 
-**Weather-Aware Truck Routing** — a web app that helps a truck driver choose the safest route
+**Weather-Aware Truck Routing** — A web app that helps a truck driver choose the safest route
 based on weather, load weight, and travel time. Enter an origin, a destination, a departure
 time, and a load weight; get up to three real, truck-legal routes with weather evaluated at
 every checkpoint *using the time the truck would actually arrive there*, scored against
